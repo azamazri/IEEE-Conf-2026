@@ -66,8 +66,8 @@ representations score each accord independently and ignore the structure in whic
 A second constraint matters in practice. Many real catalogs store only content---accord
 lists and family labels---and record no ratings or clicks. This rules out the
 interaction-driven recommenders that dominate the higher-order and knowledge-graph
-literature, such as collaborative filtering, LightGCN, KGIN, and KGAT \cite{r20}, because
-they learn from a user--item signal the data does not contain. Methods that exploit item
+literature, such as collaborative filtering, LightGCN, KGIN, and KGAT \cite{r18,r19,r20},
+because they learn from a user--item signal the data does not contain. Methods that exploit item
 co-occurrence and higher-order structure do report strong gains, but only in
 interaction-based settings such as session or multi-behavior recommendation
 \cite{r1,r2,r3,r4,r5}. Whether order-two accord co-occurrence helps in a purely
@@ -204,8 +204,9 @@ and a distinctive token of a product's own reference name appears in the free-te
 \texttt{meaning} of $32$ of $340$ products; these tokens are stripped prior to embedding.
 
 \subsection{Scope and validity}
-Collaborative and knowledge-graph recommenders---LightGCN, KGIN, and KGAT \cite{r20}---take
-a user--item interaction matrix $R\in\{0,1\}^{U\times I}$ and learn embeddings from it. The
+Collaborative and knowledge-graph recommenders---LightGCN, KGIN, and KGAT
+\cite{r18,r19,r20}---take a user--item interaction matrix $R\in\{0,1\}^{U\times I}$ and
+learn embeddings from it. The
 catalog studied here has no users ($U=\varnothing$), so $R$ is undefined and these models
 cannot be instantiated; the exclusion is a property of the data and is stated explicitly
 rather than papered over with vacuous numbers. A second caveat concerns the proxy itself:
