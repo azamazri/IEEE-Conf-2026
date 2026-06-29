@@ -631,6 +631,40 @@ fragrance market. Whether order-two co-occurrence retains its advantage on other
 domains, or larger vocabularies is untested, and external validity should not be assumed.
 \end{itemize}
 
+\section{Conclusion}\label{sec:conclusion}
+This work studied interaction-free fragrance dupe retrieval and asked whether modeling
+the co-occurrence of accords improves retrieval over the marginal similarity that
+dominates perfume recommendation. The contribution is a finding and a protocol rather
+than a new model. We formalized the task and built a non-circular evaluation---a
+three-source firewall with externally verified query accords, a leakage audit, and a
+fifteen-method comparison ladder---and we made explicit why interaction-driven
+recommenders such as KGAT, LightGCN, and KGIN cannot be instantiated on a catalog with no
+user interactions. Within this protocol, a deliberately parameter-free matcher that
+augments accord TF-IDF with order-two accord-pair tokens ranks first among all fifteen
+methods, beating every comparator across four paradigms---marginal similarity, neural
+embeddings, perceptual-taxonomy transport, and learned models.
+
+The result is reported with its caveats intact. The gain over the marginal TF-IDF
+baseline is modest ($\Delta\mathrm{MRR}=+0.042$) yet robust and significant
+($p=8.7\times10^{-8}$), and a score decomposition attributes $81.3\%$ of the top-ranked
+score to the order-two term, confirming a genuinely second-order effect. The improvement
+is bounded by the high accord overlap inherent to the dupe task; moderate learned methods
+only match the baseline rather than fall far below it; the Sentence-BERT result is partly
+a text-asymmetry artifact; and added learning capacity does not help, since a
+learning-to-rank fusion is statistically indistinguishable from the bare cosine. Taken
+together, the evidence supports the parameter-free design as a consequence of the sparse,
+one-positive-per-query data regime, not an oversight.
+
+Future work follows directly from the limitations. An intensity-weighted co-occurrence
+representation could be tested if per-accord intensity becomes available; a symmetric-text
+evaluation would isolate the semantic contribution of sentence encoders from the
+query--product asymmetry; a counterfactual edge-ablation study, in collaboration with a
+downstream explainability layer, would quantify the faithfulness of the exported
+\texttt{kg\_paths} beyond the order-one/order-two decomposition reported here; and
+replication on additional catalogs and domains would test external validity. The broader
+methodological message is that a non-circular protocol can convert a plausible intuition
+into a measured, honestly bounded finding.
+
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
