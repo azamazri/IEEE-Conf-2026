@@ -110,7 +110,7 @@ The result is reported with honest caveats: the gain over the TF-IDF baseline is
 (+0.042 MRR) but robust and significant; the Sentence-BERT loss is partly attributable
 to query-product text asymmetry; and the moderate learned methods only match, rather
 than fall far below, the baseline.
-\item \textbf{Reproducibility.} A complete, deterministic benchmark of fourteen
+\item \textbf{Reproducibility.} A complete, deterministic benchmark of fifteen
 methods with paired significance testing and bootstrap confidence intervals.
 \end{itemize}
 
@@ -175,6 +175,75 @@ The intersection this work occupies --- interaction-free, non-circular, order-tw
 co-occurrence for fragrance retrieval, used to test rather than assume the benefit of
 perceptual, neural, and learned structure --- is, to our knowledge, unaddressed by the
 literature above.
+
+\section{Problem Formulation}\label{sec:problem}
+
+\subsection{Interaction-free dupe retrieval}
+Let $\mathcal{P}=\{p_1,\dots,p_N\}$ be the catalog of local products, with $N=340$.
+Each product $p$ carries a set of olfactory accords $A(p)\subseteq\mathcal{V}$ and a
+local family label, where $\mathcal{V}$ is the accord vocabulary. Let $\mathcal{Q}$ be
+the set of query perfumes (global references); each query $q$ carries accords $A(q)$
+and a global family. The dupe relation defines, for each query, a gold set
+\begin{equation}
+g(q)=\{\,p\in\mathcal{P}\;:\;\textit{inspired\_by}(p)=q\,\}, \label{eq:gold}
+\end{equation}
+the products explicitly engineered to imitate $q$. A retrieval method assigns a score
+$s(q,p)$ to every product and ranks the entire catalog; quality is measured by where the
+gold product falls in that ranking, using the metrics and protocol defined later. Of the $340$ products,
+$243$ carry a dupe label and $97$ are unlabeled originals that remain in the pool as
+genuine distractors; $209$ queries have at least one labeled dupe and form the
+evaluation set. Local and global accord vocabularies share $56$ accords.
+
+The deployed system and the evaluation share an \emph{identical} scoring engine; they
+differ only in the query source (free user text or a global perfume) and in whether a
+gold answer exists. A global perfume is never returned as output: the pool is the
+local catalog.
+
+\subsection{A non-circular firewall}
+The central methodological risk is circularity: if the query features were copied from
+the very products they are meant to retrieve, any accord overlap would be a tautology.
+We guard against this with a three-source separation (Table~\ref{tab:firewall}). Query
+accords are sourced independently from Fragrantica---$264$ of $266$ \texttt{source\_url}
+entries resolve to perfume-specific Fragrantica pages---rather than back-filled from the
+local catalog, so the benchmark is non-circular by construction.
+
+\begin{table}[htbp]
+\caption{Three-source firewall for non-circular evaluation}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Component} & \textbf{Source} & \textbf{Independent of} \\
+\midrule
+Item features  & local catalog accords        & the label \\
+Query features & Fragrantica accords (external) & local catalog \& label \\
+Label          & held-out \textit{inspired\_by} edge & accord similarity \\
+\bottomrule
+\end{tabular}
+\label{tab:firewall}
+\end{center}
+\end{table}
+
+A leakage audit further removes identity-bearing text before any text-based method sees
+it: the \texttt{interpreted\_as} field equals the global perfume name and is never
+exposed, and a distinctive token of a product's own global name appears in the free-text
+\texttt{meaning} of $32$ of $340$ products; these tokens are stripped prior to embedding.
+
+\subsection{Why interaction-based recommenders are out of scope}
+Collaborative and knowledge-graph recommenders---including LightGCN, KGIN, and KGAT
+\cite{r20}---take as input a user--item interaction matrix $R\in\{0,1\}^{U\times I}$ and
+learn user and item embeddings from it. The catalog studied here contains no users and
+no interactions ($U=\varnothing$), so $R$ is undefined and these models cannot be
+instantiated, let alone compared. This is a property of the data, not a choice of
+convenience; we therefore restrict the comparison to content-only methods and state the
+exclusion explicitly rather than reporting vacuous numbers.
+
+\subsection{Validity of the proxy}
+The dupe task measures \emph{perceptual} match, not user satisfaction, and results should
+be read as such. Because a dupe is deliberately formulated to smell like its target,
+accord overlap between a query and its gold product is high (about $86\%$ of a dupe's
+accords are contained in the query's accord list). This overlap is a genuine signal
+rather than a construction artifact, and it explains why even a strong method improves
+only modestly over the marginal baseline.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
