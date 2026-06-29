@@ -276,11 +276,12 @@ automatic and parameter-free. Each fragrance becomes a sparse vector
 \begin{equation}
 v_f[t]=
 \begin{cases}
-\mathrm{idf}(t) & t\in T(f)\\
+\mathrm{idf}(t) & \text{if } t\in T(f),\\
 0 & \text{otherwise,}
 \end{cases}
-\qquad v_f\leftarrow \frac{v_f}{\lVert v_f\rVert_2}. \label{eq:vector}
+\label{eq:vector}
 \end{equation}
+which is then $L_2$-normalized, $v_f\leftarrow v_f/\lVert v_f\rVert_2$.
 
 \subsection{Similarity and additive decomposition}
 The score between a query $q$ and a product $p$ is the cosine of their token vectors,
@@ -289,11 +290,10 @@ contribution:
 \begin{equation}
 s(q,p)=\frac{S_1(q,p)+S_2(q,p)}{\lVert v_q\rVert\,\lVert v_p\rVert}, \label{eq:score}
 \end{equation}
-\begin{equation}
-S_1(q,p)\!=\!\!\!\sum_{a\in A(q)\cap A(p)}\!\!\!\mathrm{idf}(a)^2,
-\quad
-S_2(q,p)\!=\!\!\!\sum_{e\in E_q\cap E_p}\!\!\!\mathrm{idf}(e)^2. \label{eq:terms}
-\end{equation}
+\begin{align}
+S_1(q,p)&=\sum_{a\in A(q)\cap A(p)}\mathrm{idf}(a)^2,\label{eq:s1}\\
+S_2(q,p)&=\sum_{e\in E_q\cap E_p}\mathrm{idf}(e)^2.\label{eq:terms}
+\end{align}
 Here $S_1$ rewards shared accords and $S_2$ rewards shared accord \emph{pairs}; because
 both blocks share one normalizer, the two terms add up to the full score. Empirically,
 the order-two term $S_2$ accounts for $81.3\%$ of the top-ranked score, confirming that
@@ -341,6 +341,85 @@ one relevant product each---added capacity overfits, as the experiments confirm:
 learning-to-rank fusion does not significantly beat the bare cosine, and high-dimensional
 learned variants collapse, as reported in the results. Simplicity is thus a design
 decision grounded in the data regime, not an omission.
+
+\section{Experimental Setup}\label{sec:setup}
+
+\subsection{Dataset and provenance}
+The catalog contains $340$ local products; $243$ carry a dupe label and $97$ are
+unlabeled originals retained as distractors. After joining each labeled product to its
+global perfume, $209$ queries have at least one labeled dupe and form the leave-one-out
+evaluation set. Local and global vocabularies share $56$ accords, drawn from $17$ local
+and $49$ global families. Accord lists are parsed by splitting on commas and semicolons,
+lower-casing, and trimming. Crucially, query accords are taken from the global reference
+table whose entries are independently sourced: $264$ of $266$ \texttt{source\_url} values
+resolve to perfume-specific Fragrantica pages, so query features are not back-filled from
+the catalog they retrieve.
+
+\subsection{Methods}
+We evaluate fifteen methods organized into three tiers (Table~\ref{tab:methods}). Tier~1
+collects established baselines: marginal accord similarity (Jaccard, TF-IDF cosine, and
+BM25) and neural embeddings (a multilingual Sentence-BERT \cite{r22} over the textual
+fields, a Word2Vec model over accord sequences, and node2vec over the accord
+co-occurrence graph). Tier~2 collects structured or learned comparators expected to test
+whether added structure helps: a tree-Wasserstein distance over the Edwards fragrance
+wheel \cite{r10}, a positive pointwise mutual information embedding with truncated SVD, a
+signature-subgraph learning-to-rank model, a high-dimensional per-bigram salience
+logistic model, a low-rank bilinear metric, and a gradient-boosting fusion. Tier~3 is the
+proposed family: the order-two matcher (P1), a learning-to-rank fusion of its components
+(P2), and a hub-discriminative IDF ablation (P3). B2 (TF-IDF cosine) is the primary
+marginal baseline.
+
+\begin{table}[htbp]
+\caption{The fifteen-method comparison ladder}
+\begin{center}
+\begin{tabular}{llp{0.30\linewidth}}
+\toprule
+\textbf{ID} & \textbf{Paradigm} & \textbf{Method} \\
+\midrule
+B1 & marginal      & Jaccard over accord sets \\
+B2 & marginal      & TF-IDF cosine (primary baseline) \\
+B3 & marginal      & BM25 over accord tokens \\
+B4 & neural        & Sentence-BERT over text \\
+B5 & neural        & Word2Vec accord embeddings \\
+B6 & neural        & node2vec on co-occurrence graph \\
+A1 & perceptual    & Edwards-wheel tree-Wasserstein \\
+A2 & learned       & PPMI + truncated SVD \\
+A3 & learned       & signature-subgraph LTR \\
+A4 & learned       & per-bigram salience logistic \\
+A5 & learned       & low-rank bilinear metric \\
+A6 & learned       & gradient-boosting fusion \\
+P1 & \textbf{proposed} & order-2 co-occurrence TF-IDF \\
+P2 & proposed      & P1 + LTR fusion \\
+P3 & proposed      & P1 + hub-discriminative IDF \\
+\bottomrule
+\end{tabular}
+\label{tab:methods}
+\end{center}
+\end{table}
+
+\subsection{Metrics}
+With one relevant product per query, we report mean reciprocal rank (MRR) and Hits@$k$,
+\begin{align}
+\mathrm{MRR}&=\frac{1}{|\mathcal{Q}|}\sum_{q\in\mathcal{Q}}\frac{1}{r_q},\label{eq:mrr}\\
+\mathrm{Hits}@k&=\frac{1}{|\mathcal{Q}|}\sum_{q\in\mathcal{Q}}\mathbf{1}[\,r_q\le k\,],\label{eq:hits}
+\end{align}
+where $r_q$ is the rank of the best (smallest-rank) gold product for query $q$, and
+$k\in\{1,3\}$. Ties in score are resolved by the expected reciprocal rank under uniform
+random tie-breaking, which neither rewards nor penalizes tie-heavy methods.
+
+\subsection{Protocol and significance}
+Every method ranks the full pool of $340$ products. Supervised methods (A3--A6, P2) are
+scored out-of-fold with $5$-fold \emph{GroupKFold} grouped by query, so no query appears
+in both training and test. Deterministic methods are run once; stochastic methods (A2,
+A5, B5, B6, and the fold-shuffled learning-to-rank models) are run over $5$ seeds and
+reported as mean$\pm$standard deviation. Statistical significance against the proposed
+method uses the Wilcoxon signed-rank test paired across queries on the reciprocal ranks;
+because deterministic methods have no seed variance, significance is computed across
+queries rather than across seeds. Confidence intervals for the difference in MRR use
+$10{,}000$ bootstrap resamples over queries. For the text-based method, the leakage audit
+of Section~\ref{sec:problem} is applied before embedding. The pipeline is implemented in
+Python with fixed seeds for full reproducibility; only the optional Sentence-BERT baseline
+requires a pretrained model download.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
