@@ -27,24 +27,24 @@ azamazriahmad@mail.ugm.ac.id}
 \maketitle
 
 \begin{abstract}
-Content-based perfume recommenders predominantly rank candidates by order-one
-accord similarity, such as cosine or Jaccard over note sets. Whether modeling the
-co-occurrence of accords improves retrieval has not been tested under a leakage-free
-protocol, and the prevalent catalogs carry no user interactions, which rules out
-collaborative and knowledge-graph recommenders that require an interaction signal.
-This work studies interaction-free fragrance dupe retrieval: given a global perfume,
-retrieve the local product that imitates it, with the held-out inspired-by edge as
-ground truth. A parameter-free matcher is proposed that augments accord TF-IDF with
-accord-pair (order-two) tokens; its cosine score decomposes additively into
-order-one and order-two terms and yields faithful, auditable co-occurrence paths for
-explanation. Evaluation uses 340 products and 209 queries under leave-one-out
-ranking, with a three-source firewall whose query accords are independently verified
-from Fragrantica. Against twelve comparison methods spanning marginal similarity,
-neural embeddings, perceptual-taxonomy transport, and learned models, the proposed
-method attains the best mean reciprocal rank (MRR 0.496) and beats the TF-IDF baseline
-(0.454) by a modest but robust margin (delta-MRR +0.042, 95\% CI [+0.019, +0.067],
-Wilcoxon p = 8.7e-8); order-two terms contribute 81.3\% of the top-ranked score.
-The effect is honestly modest, and limitations are discussed.
+Content-based perfume recommenders rank products by order-one accord similarity, such as
+cosine or Jaccard over note sets, and treat accords as independent. Whether modeling how
+accords \emph{co-occur} improves recommendation has not been tested under a leakage-free
+protocol. Most product catalogs also record no user interactions, which rules out the
+collaborative and knowledge-graph recommenders that need an interaction signal. This paper
+studies interaction-free, content-based perfume recommendation, cast as a retrieval task:
+given a reference perfume, the catalog is ranked to surface the product that best matches
+it, and a held-out inspired-by edge supplies ground-truth relevance. The proposed matcher
+is parameter-free. It augments accord TF-IDF with accord-pair (order-two) tokens, its
+cosine score splits additively into an order-one and an order-two term, and it emits
+auditable co-occurrence paths for explanation. The evaluation covers 340 products and 209
+reference perfumes under leave-one-out ranking, behind a three-source firewall whose query
+accords are independently verified from Fragrantica. Across fifteen methods spanning
+marginal similarity, neural embeddings, perceptual-taxonomy transport, and learned models,
+the order-two matcher attains the best mean reciprocal rank (MRR 0.496) and exceeds the
+TF-IDF baseline (0.454) by a modest but robust margin ($\Delta$MRR $+0.042$, 95\% CI
+$[+0.019,+0.067]$, Wilcoxon $p=8.7\times10^{-8}$); order-two terms supply 81.3\% of the
+top-ranked score.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -53,65 +53,61 @@ fragrance, non-circular evaluation
 \end{IEEEkeywords}
 
 \section{Introduction}
-Selecting a fragrance ``dupe'' --- an affordable local product engineered to imitate
-the scent of a well-known global perfume --- is a common consumer task and a natural
-content-based retrieval problem. Each product is described by a small set of
-olfactory \emph{accords} (e.g., \textit{amber}, \textit{woody}, \textit{warm spicy}),
-and a dupe is expected to share much of the accord profile of the global perfume it
-imitates. Existing perfume recommenders rank candidates almost exclusively by
-order-one accord similarity, typically cosine over term frequency--inverse document
-frequency (TF-IDF) vectors or Jaccard over accord sets \cite{r23,r24,r28}. Such marginal representations treat accords
-independently and discard the structure in which accords co-occur.
+Choosing a perfume is hard. A shopper who likes an expensive branded scent often wants an
+affordable local product that smells the same, and a content-based recommender can help.
+Each perfume is described by a small set of olfactory \emph{accords}---for example
+\textit{amber}, \textit{woody}, or \textit{warm spicy}---and two perfumes that share
+accords tend to smell alike. Existing perfume recommenders rank products almost only by
+order-one accord similarity: cosine over term frequency--inverse document frequency
+(TF-IDF) vectors, or Jaccard over accord sets \cite{r23,r24,r28}. Such marginal
+representations score each accord independently and ignore the structure in which accords
+\emph{co-occur}.
 
-A second constraint is decisive in practice: many real product catalogs record only
-content (accord lists and family labels) and carry \emph{no} user interactions or
-ratings. This excludes by construction the interaction-driven recommenders that
-dominate the higher-order and knowledge-graph literature --- collaborative filtering,
-LightGCN, KGIN, and KGAT \cite{r20} --- because they require a user--item signal the
-data does not contain. Methods that do exploit item co-occurrence and higher-order
-structure report strong gains, but only in interaction-based settings such as
-session or multi-behavior recommendation \cite{r1,r2,r3,r4,r5}. Whether order-two
-accord co-occurrence helps in a purely content-based, interaction-free regime, and
-whether it does so under an evaluation that cannot leak the label, remains open.
+A second constraint matters in practice. Many real catalogs store only content---accord
+lists and family labels---and record no ratings or clicks. This rules out the
+interaction-driven recommenders that dominate the higher-order and knowledge-graph
+literature, such as collaborative filtering, LightGCN, KGIN, and KGAT \cite{r20}, because
+they learn from a user--item signal the data does not contain. Methods that exploit item
+co-occurrence and higher-order structure do report strong gains, but only in
+interaction-based settings such as session or multi-behavior recommendation
+\cite{r1,r2,r3,r4,r5}. Whether order-two accord co-occurrence helps in a purely
+content-based, interaction-free setting---and whether it helps under an evaluation that
+cannot leak the answer---is still open.
 
-A third assumption pervades adjacent fields: that injecting perceptual or learned
-\emph{structure} aids retrieval. Perceptual odor science organizes accords on sensory
-wheels and perceptual maps \cite{r10,r12,r13}, and a large body of work assumes such
-geometry should help. Yet evidence from small and imbalanced datasets repeatedly
-shows that simple baselines match or beat flexible models that overfit
-\cite{r14,r15,r16,r17}. This tension has not been examined for interaction-free
-fragrance retrieval.
+A third assumption is common in adjacent fields: that adding perceptual or learned
+\emph{structure} improves retrieval. Odor science arranges accords on sensory wheels and
+perceptual maps \cite{r10,r12,r13}, and much work assumes such geometry should help. Yet on
+small, imbalanced datasets, simple baselines often match or beat flexible models that
+overfit \cite{r14,r15,r16,r17}. This tension has not been examined for interaction-free
+perfume recommendation.
 
-This paper addresses these gaps with a deliberately simple, parameter-free method and
-a rigorous, non-circular protocol. Accords and accord-pairs (unigrams and bigrams of
-a co-occurrence graph) are weighted by inverse document frequency and compared by
-cosine; the score decomposes additively into an order-one (marginal) term and an
-order-two (co-occurrence) term, and the shared accord-pairs form auditable
-explanation paths grouped by fragrance-wheel super-family. The matcher is intentionally
-free of trained parameters: added capacity is shown empirically to overfit. The
-contribution is a \emph{finding and a protocol}, not a new model, calibrated to a
-moderate, applied scope.
+This paper addresses these gaps with a deliberately simple, parameter-free method and a
+non-circular protocol. Accords and accord-pairs---the nodes and edges of a co-occurrence
+graph---are weighted by inverse document frequency and compared by cosine. The score splits
+additively into an order-one (marginal) term and an order-two (co-occurrence) term, and the
+shared accord-pairs become auditable explanation paths. The matcher carries no trained
+parameters, because added capacity is shown to overfit. The contribution is therefore a
+\emph{finding and a protocol}, not a new model, at a moderate applied scope.
 
-This paper makes four contributions. First, on \emph{task and protocol}, it formalizes
-interaction-free dupe retrieval and a non-circular evaluation with a three-source firewall
-(local item accords, externally sourced query accords verified from Fragrantica, and
-held-out inspired-by labels), and makes explicit why interaction-based recommenders
-(KGAT, LightGCN, KGIN) cannot be compared on this data. Second, on \emph{method}, it
+The paper makes four contributions. \emph{Task and protocol.} It casts interaction-free,
+content-based perfume recommendation as a retrieval task and defines a non-circular
+evaluation with a three-source firewall: local item accords, externally sourced query
+accords verified from Fragrantica, and held-out inspired-by labels (the imitation, or
+``dupe,'' relation, used only as ground truth). It also makes explicit why interaction-based
+recommenders (KGAT, LightGCN, KGIN) cannot be compared on this data. \emph{Method.} It
 proposes an order-two co-occurrence TF-IDF matcher whose cosine score decomposes into
-order-one and order-two terms, paired with faithful-by-construction explanation paths for
-a downstream explainability layer. Third, on \emph{finding}, it gives a first
-non-circular demonstration that order-two co-occurrence ranks first in a fifteen-method
-benchmark, beating all twelve comparators across four paradigms---marginal similarity,
-neural embeddings, perceptual-taxonomy transport, and learned models---while the two
-proposed variants do not improve on it; the result is stated with honest caveats, namely
-that the gain over the TF-IDF baseline is modest ($+0.042$ MRR) yet robust and
-significant, that the Sentence-BERT loss is partly attributable to query--product text
-asymmetry, and that the moderate learned methods only match rather than fall far below the
-baseline. Fourth, on \emph{reproducibility}, it provides a complete, deterministic
-benchmark of fifteen methods with paired significance testing and bootstrap confidence
-intervals. The remainder of the paper reviews related work, formalizes the problem and the
-non-circular firewall, presents the proposed method, describes the experimental setup, and
-reports, discusses, and bounds the results before concluding.
+order-one and order-two terms and yields faithful-by-construction explanation paths.
+\emph{Finding.} It gives a first non-circular demonstration that order-two co-occurrence
+ranks first among fifteen methods, ahead of all twelve comparators across four
+paradigms---marginal similarity, neural embeddings, perceptual-taxonomy transport, and
+learned models---while neither proposed variant improves on it. Honest caveats accompany the
+claim: the gain over the TF-IDF baseline is modest ($+0.042$ MRR) yet robust, the
+Sentence-BERT loss is partly due to query--product text asymmetry, and the moderate learned
+methods only match the baseline. \emph{Reproducibility.} It provides a complete,
+deterministic benchmark of fifteen methods with paired significance tests and bootstrap
+confidence intervals. The remainder of the paper reviews related work, formalizes the
+problem, presents the method, describes the setup, and reports, discusses, and bounds the
+results.
 
 \section{Related Work}\label{sec:related}
 
@@ -135,55 +131,56 @@ path-based explainable recommenders---KGAT \cite{r20} and related reasoning mode
 \cite{r18,r19,r21}---likewise depend on interactions to learn embeddings and attention,
 and their paths can be only loosely tied to the score. Because the catalog studied here
 has no interactions, KGAT, LightGCN, and KGIN cannot be instantiated and are excluded from
-comparison; we instead lift co-occurrence into the content representation itself and derive
-explanation paths directly from the shared accord-pairs that produce the score, so they are
-discriminative (weighted by inverse document frequency) and faithful by construction.
+comparison. The proposed method instead lifts co-occurrence into the content representation
+itself and derives explanation paths directly from the shared accord-pairs that produce the
+score, so they are discriminative (weighted by inverse document frequency) and faithful by
+construction.
 
 \subsection{Perceptual structure, transport, and simple baselines}
 Olfactory science represents odors with sensory wheels and perceptual maps
 \cite{r10,r11,r12,r13}, suggesting that imposing such geometry should aid retrieval, and
 transport-based distances on trees and graphs offer a principled way to compare
-distributions over it \cite{r7,r8,r9,r9b}; we operationalize this as a tree-Wasserstein
-distance over the Edwards wheel and measure---rather than assume---whether it helps. A
+distributions over it \cite{r7,r8,r9,r9b}. This hypothesis is operationalized here as a
+tree-Wasserstein distance over the Edwards wheel and measured---rather than assumed. A
 countervailing lesson is that flexible, high-capacity models fail to beat simple baselines
 on scarce or imbalanced data: linear baselines remain competitive for gene-perturbation
 prediction \cite{r14}, overfitting under class imbalance is well documented on small
 datasets \cite{r15,r16,r17}, and cold-start recommenders lean on content rather than
-capacity \cite{r25,r26,r27}. These motivate our parameter-free design. To our knowledge,
-the intersection occupied here---interaction-free, non-circular, order-two co-occurrence
-for perfume retrieval, used to test the benefit of perceptual, neural, and learned
-structure---is unaddressed by this literature.
+capacity \cite{r25,r26,r27}. These motivate the parameter-free design adopted here. To the
+best of current knowledge, the intersection studied---interaction-free, non-circular,
+order-two co-occurrence for perfume recommendation, used to test the benefit of perceptual,
+neural, and learned structure---is unaddressed by this literature.
 
 \section{Problem Formulation}\label{sec:problem}
 
-\subsection{Interaction-free dupe retrieval}
-Let $\mathcal{P}=\{p_1,\dots,p_N\}$ be the catalog of local products, with $N=340$.
-Each product $p$ carries a set of olfactory accords $A(p)\subseteq\mathcal{V}$ and a
-local family label, where $\mathcal{V}$ is the accord vocabulary. Let $\mathcal{Q}$ be
-the set of query perfumes (global references); each query $q$ carries accords $A(q)$
-and a global family. The dupe relation defines, for each query, a gold set
+\subsection{Problem setup}
+Let $\mathcal{P}=\{p_1,\dots,p_N\}$ be the catalog of local products, with $N=340$. Each
+product $p$ carries a set of olfactory accords $A(p)\subseteq\mathcal{V}$ and a family
+label, where $\mathcal{V}$ is the accord vocabulary. Let $\mathcal{Q}$ be the set of
+reference perfumes (branded originals); each reference $q$ carries accords $A(q)$ and a
+family. The imitation (``dupe'') relation gives, for each reference, a ground-truth set
 \begin{equation}
 g(q)=\{\,p\in\mathcal{P}\;:\;\textit{inspired\_by}(p)=q\,\}, \label{eq:gold}
 \end{equation}
-the products explicitly engineered to imitate $q$. A retrieval method assigns a score
-$s(q,p)$ to every product and ranks the entire catalog; quality is measured by where the
-gold product falls in that ranking, using the metrics and protocol defined later. Of the $340$ products,
-$243$ carry a dupe label and $97$ are unlabeled originals that remain in the pool as
-genuine distractors; $209$ queries have at least one labeled dupe and form the
-evaluation set. Local and global accord vocabularies share $56$ accords.
+the products built to smell like $q$. A method scores every product, $s(q,p)$, and ranks
+the whole catalog; quality is the rank of the ground-truth product, measured by the metrics
+defined later. Of the $340$ products, $243$ carry a label and $97$ are unlabeled originals
+kept in the pool as genuine distractors; $209$ references have at least one labeled product
+and form the leave-one-out evaluation set. Local and reference vocabularies share $56$
+accords.
 
-The deployed system and the evaluation share an \emph{identical} scoring engine; they
-differ only in the query source (free user text or a global perfume) and in whether a
-gold answer exists. A global perfume is never returned as output: the pool is the
+The deployed recommender and the evaluation share an \emph{identical} scoring engine; they
+differ only in the query source (free user text or a reference perfume) and in whether a
+ground-truth answer exists. A reference perfume is never returned as output: the pool is the
 local catalog.
 
 \subsection{A non-circular firewall}
-The central methodological risk is circularity: if the query features were copied from
-the very products they are meant to retrieve, any accord overlap would be a tautology.
-We guard against this with a three-source separation (Table~\ref{tab:firewall}). Query
-accords are sourced independently from Fragrantica---$264$ of $266$ \texttt{source\_url}
-entries resolve to perfume-specific Fragrantica pages---rather than back-filled from the
-local catalog, so the benchmark is non-circular by construction.
+The central methodological risk is circularity: if the query features were copied from the
+very products they are meant to retrieve, any accord overlap would be a tautology. A
+three-source separation guards against this (Table~\ref{tab:firewall}). Query accords are
+sourced independently from Fragrantica---$264$ of $266$ \texttt{source\_url} entries resolve
+to perfume-specific Fragrantica pages---rather than back-filled from the local catalog, so
+the benchmark is non-circular by construction.
 
 \begin{table}[htbp]
 \caption{Three-source firewall for non-circular evaluation}
@@ -201,21 +198,21 @@ Label          & held-out \textit{inspired\_by} edge & accord similarity \\
 \end{center}
 \end{table}
 
-A leakage audit further removes identity-bearing text before any text-based method sees
-it: the \texttt{interpreted\_as} field equals the global perfume name and is never
-exposed, and a distinctive token of a product's own global name appears in the free-text
+A leakage audit further removes identity-bearing text before any text-based method sees it:
+the \texttt{interpreted\_as} field equals the reference perfume name and is never exposed,
+and a distinctive token of a product's own reference name appears in the free-text
 \texttt{meaning} of $32$ of $340$ products; these tokens are stripped prior to embedding.
 
 \subsection{Scope and validity}
 Collaborative and knowledge-graph recommenders---LightGCN, KGIN, and KGAT \cite{r20}---take
 a user--item interaction matrix $R\in\{0,1\}^{U\times I}$ and learn embeddings from it. The
 catalog studied here has no users ($U=\varnothing$), so $R$ is undefined and these models
-cannot be instantiated; the exclusion is a property of the data, and we state it explicitly
-rather than report vacuous numbers. A second caveat concerns the proxy itself: the dupe task
-measures \emph{perceptual} match, not user satisfaction. Because a dupe is deliberately
-formulated to smell like its target, query--gold accord overlap is high (about $86\%$ of a
-dupe's accords appear in the query). This overlap is a genuine signal rather than an
-artifact, and it bounds how much any method can improve over the marginal baseline.
+cannot be instantiated; the exclusion is a property of the data and is stated explicitly
+rather than papered over with vacuous numbers. A second caveat concerns the proxy itself:
+the imitation relation measures \emph{perceptual} match, not user satisfaction. Because an
+imitation is built to smell like its target, query--target accord overlap is high (about
+$86\%$ of a target's accords appear in the query). This overlap is a genuine signal rather
+than an artifact, and it bounds how much any method can improve over the marginal baseline.
 
 \section{Proposed Method}\label{sec:method}
 The proposed matcher represents each fragrance not only by which accords it contains
@@ -240,7 +237,7 @@ core idea, and Fig.~\ref{fig:arch} summarizes the pipeline.
 \draw[e1] (qa)--(qw); \draw[e1] (qc)--(qw);
 \draw[e2] (qa)--(qc);
 % Product triangle (right)
-\node at (3.7,1.95) {\textbf{Dupe} $p$};
+\node at (3.7,1.95) {\textbf{Product} $p$};
 \node[sh] (pa) at (3.7,1.35) {amb};
 \node[sh] (pc) at (2.85,0) {cin};
 \node[acc] (pl) at (4.55,0) {lea};
@@ -250,11 +247,11 @@ core idea, and Fig.~\ref{fig:arch} summarizes the pipeline.
 \draw[->,red!75!black] (1.55,1.55) to[bend right=12] (qa);
 \draw[->,red!75!black] (2.15,1.55) to[bend left=12] (pa);
 \end{tikzpicture}
-\caption{Order-1 versus order-2 matching. Shaded nodes are accords shared by query $q$
-and candidate dupe $p$ (order-1). The bold red edge is a rare accord \emph{pair}
-(\textit{amber--cinnamon}) that co-occurs in both (order-2). A distractor may share the
-same individual accords yet lack this signature pairing; it is the shared rare pair, not
-the shared accords, that lifts the true dupe to the top.}
+\caption{Order-1 versus order-2 matching. Shaded nodes are accords shared by reference $q$
+and candidate product $p$ (order-1). The bold red edge is a rare accord \emph{pair}
+(\textit{amber--cinnamon}) that co-occurs in both (order-2). A distractor may share the same
+individual accords yet lack this signature pairing; the shared rare pair, not the shared
+accords, lifts the true match to the top.}
 \label{fig:concept}
 \end{figure}
 
@@ -351,18 +348,18 @@ decision grounded in the data regime, not an omission.
 \section{Experimental Setup}\label{sec:setup}
 
 \subsection{Dataset and provenance}
-The catalog contains $340$ local products; $243$ carry a dupe label and $97$ are
+The catalog contains $340$ local products; $243$ carry an imitation label and $97$ are
 unlabeled originals retained as distractors. After joining each labeled product to its
-global perfume, $209$ queries have at least one labeled dupe and form the leave-one-out
-evaluation set. Local and global vocabularies share $56$ accords, drawn from $17$ local
-and $49$ global families. Accord lists are parsed by splitting on commas and semicolons,
-lower-casing, and trimming. Crucially, query accords are taken from the global reference
-table whose entries are independently sourced: $264$ of $266$ \texttt{source\_url} values
-resolve to perfume-specific Fragrantica pages, so query features are not back-filled from
-the catalog they retrieve.
+reference perfume, $209$ references have at least one labeled product and form the
+leave-one-out evaluation set. Local and reference vocabularies share $56$ accords, drawn
+from $17$ local and $49$ reference families. Accord lists are parsed by splitting on commas
+and semicolons, lower-casing, and trimming. Crucially, query accords are taken from the
+reference table whose entries are independently sourced: $264$ of $266$ \texttt{source\_url}
+values resolve to perfume-specific Fragrantica pages, so query features are not back-filled
+from the catalog they retrieve.
 
 \subsection{Methods}
-We evaluate fifteen methods (Table~\ref{tab:results}) in three tiers. Tier~1 is
+Fifteen methods (Table~\ref{tab:results}) are evaluated in three tiers. Tier~1 is
 established baselines: marginal accord similarity (Jaccard, TF-IDF cosine, BM25) and neural
 embeddings (multilingual Sentence-BERT \cite{r22} over the textual fields, Word2Vec over
 accord sequences, node2vec over the co-occurrence graph). Tier~2 is structured or learned
@@ -374,12 +371,12 @@ family: the order-two matcher (P1), a learning-to-rank fusion (P2), and a hub-di
 IDF ablation (P3). B2 (TF-IDF cosine) is the primary marginal baseline.
 
 \subsection{Metrics}
-With one relevant product per query, we report mean reciprocal rank (MRR) and Hits@$k$,
+With one relevant product per query, the metrics are mean reciprocal rank (MRR) and Hits@$k$,
 \begin{align}
 \mathrm{MRR}&=\frac{1}{|\mathcal{Q}|}\sum_{q\in\mathcal{Q}}\frac{1}{r_q},\label{eq:mrr}\\
 \mathrm{Hits}@k&=\frac{1}{|\mathcal{Q}|}\sum_{q\in\mathcal{Q}}\mathbf{1}[\,r_q\le k\,],\label{eq:hits}
 \end{align}
-where $r_q$ is the rank of the best (smallest-rank) gold product for query $q$, and
+where $r_q$ is the rank of the best (smallest-rank) ground-truth product for query $q$, and
 $k\in\{1,3\}$. Ties in score are resolved by the expected reciprocal rank under uniform
 random tie-breaking, which neither rewards nor penalizes tie-heavy methods.
 
@@ -405,89 +402,65 @@ proposed order-two matcher P1 reaches MRR $0.496$, the top score among the twelv
 comparison methods; the next best comparator, the gradient-boosting fusion A6, trails at
 $0.457$, and the primary TF-IDF baseline B2 at $0.454$. The learning-to-rank fusion P2 is
 numerically marginally higher ($0.500$) but, as shown below, is statistically
-indistinguishable from P1; we therefore treat the parameter-free P1 as the method of
-record and P2 as an ablation. The remaining paradigms fall clearly behind: neural
+indistinguishable from P1; the parameter-free P1 is therefore the method of
+record and P2 an ablation. The remaining paradigms fall clearly behind: neural
 embeddings (B6 $0.340$, B4 $0.272$, B5 $0.185$), the perceptual-taxonomy transport (A1
 $0.284$), and the high-dimensional learned models (A5 $0.150$, A4 $0.139$) are all well
 below the marginal baseline, while the moderate learned models (A2 $0.444$, A6 $0.457$)
 only reach it.
 
-\begin{table}[t]
-\caption{Methods and retrieval accuracy (mean over 5 seeds for stochastic methods). Best in bold.}
+\begin{table*}[t]
+\caption{Methods, retrieval accuracy, and significance against the proposed P1. $\Delta$MRR
+and Wilcoxon $p$ compare P1 with each method, paired across queries (95\% bootstrap
+confidence intervals given in the text). Stochastic methods are averaged over 5 seeds; best
+in bold.}
 \begin{center}
-\footnotesize
-\begin{tabular}{llccc}
+\begin{tabular}{llccccc}
 \toprule
-\textbf{ID} & \textbf{Method (paradigm)} & \textbf{MRR} & \textbf{H@1} & \textbf{H@3} \\
+\textbf{ID} & \textbf{Method (paradigm)} & \textbf{MRR} & \textbf{H@1} & \textbf{H@3} & \textbf{$\Delta$MRR vs.\ P1} & \textbf{Wilcoxon $p$} \\
 \midrule
-\textbf{P1} & order-2 co-occ.\ TF-IDF \textit{(proposed)} & \textbf{0.496} & \textbf{0.378} & \textbf{0.562} \\
-P2 & P1 $+$ LTR fusion & 0.500 & 0.379 & 0.580 \\
-P3 & P1 $+$ hub-discriminative IDF & 0.448 & 0.335 & 0.491 \\
+\textbf{P1} & order-2 co-occ.\ TF-IDF \textit{(proposed)} & \textbf{0.496} & \textbf{0.378} & \textbf{0.562} & --- & --- \\
+P2 & P1 $+$ LTR fusion & 0.500 & 0.379 & 0.580 & $-0.005$ & $0.18$ (n.s.) \\
+P3 & P1 $+$ hub-discriminative IDF & 0.448 & 0.335 & 0.491 & $+0.049$ & $6.2\times10^{-10}$ \\
 \midrule
-B1 & Jaccard (marginal) & 0.428 & 0.303 & 0.487 \\
-B2 & TF-IDF cosine (baseline) & 0.454 & 0.335 & 0.507 \\
-B3 & BM25 (marginal) & 0.388 & 0.278 & 0.433 \\
-B4 & Sentence-BERT (neural) & 0.272 & 0.163 & 0.311 \\
-B5 & Word2Vec (neural) & 0.185 & 0.110 & 0.182 \\
-B6 & node2vec (neural) & 0.340 & 0.233 & 0.371 \\
-A1 & wheel tree-Wasserstein (perceptual) & 0.284 & 0.174 & 0.306 \\
-A2 & PPMI $+$ SVD (learned) & 0.444 & 0.343 & 0.498 \\
-A3 & signature LTR (learned) & 0.433 & 0.303 & 0.500 \\
-A4 & bigram salience (learned) & 0.139 & 0.060 & 0.145 \\
-A5 & bilinear metric (learned) & 0.150 & 0.072 & 0.150 \\
-A6 & GBM fusion (learned) & 0.457 & 0.325 & 0.533 \\
+B1 & Jaccard (marginal) & 0.428 & 0.303 & 0.487 & $+0.069$ & $6.6\times10^{-3}$ \\
+B2 & TF-IDF cosine (baseline) & 0.454 & 0.335 & 0.507 & $+0.042$ & $8.7\times10^{-8}$ \\
+B3 & BM25 (marginal) & 0.388 & 0.278 & 0.433 & $+0.108$ & $8.3\times10^{-12}$ \\
+B4 & Sentence-BERT (neural) & 0.272 & 0.163 & 0.311 & $+0.225$ & $1.6\times10^{-11}$ \\
+B5 & Word2Vec (neural) & 0.185 & 0.110 & 0.182 & $+0.294$ & $2.0\times10^{-16}$ \\
+B6 & node2vec (neural) & 0.340 & 0.233 & 0.371 & $+0.181$ & $2.7\times10^{-11}$ \\
+A1 & wheel tree-Wasserstein (perceptual) & 0.284 & 0.174 & 0.306 & $+0.213$ & $3.9\times10^{-13}$ \\
+A2 & PPMI $+$ SVD (learned) & 0.444 & 0.343 & 0.498 & $+0.054$ & $3.9\times10^{-3}$ \\
+A3 & signature LTR (learned) & 0.433 & 0.303 & 0.500 & $+0.066$ & $5.7\times10^{-8}$ \\
+A4 & bigram salience (learned) & 0.139 & 0.060 & 0.145 & $+0.367$ & $2.7\times10^{-21}$ \\
+A5 & bilinear metric (learned) & 0.150 & 0.072 & 0.150 & $+0.332$ & $2.5\times10^{-21}$ \\
+A6 & GBM fusion (learned) & 0.457 & 0.325 & 0.533 & $+0.052$ & $2.3\times10^{-2}$ \\
 \bottomrule
 \end{tabular}
 \label{tab:results}
 \end{center}
-\end{table}
+\end{table*}
 
 \subsection{Significance}
-Table~\ref{tab:sig} pairs P1 against every other method across queries. P1 has a
+The last two columns of Table~\ref{tab:results} pair P1 against every other method across
+queries. P1 has a
 positive, significant advantage over all twelve comparators. The headline comparison
 against the marginal baseline B2 is modest but robust: $\Delta\mathrm{MRR}=+0.042$, with a
 $95\%$ bootstrap confidence interval of $[+0.019,+0.067]$ and Wilcoxon
 $p=8.7\times10^{-8}$. Margins are far larger over the neural and high-dimensional learned
 methods (e.g., $+0.225$ over B4, $+0.294$ over B5, $+0.367$ over A4). Against the moderate
 learned models the gain is small yet still significant ($+0.054$ over A2, $+0.052$ over
-A6), which is why we describe them as matching, not surpassing, the baseline rather than
-failing outright. The fusion variant P2 does not significantly differ from P1
+A6), so they match, not surpass, the baseline rather than failing outright. The fusion
+variant P2 does not significantly differ from P1
 ($\Delta\mathrm{MRR}=-0.005$, $p=0.18$), confirming that added learning capacity is
 unnecessary.
-
-\begin{table}[t]
-\caption{P1 versus each method: paired Wilcoxon test on reciprocal rank and bootstrap 95\% CI for $\Delta$MRR}
-\begin{center}
-\begin{tabular}{lccc}
-\toprule
-\textbf{vs.} & \textbf{$\Delta$MRR} & \textbf{95\% CI} & \textbf{Wilcoxon $p$} \\
-\midrule
-B1 & $+0.069$ & $[+0.040,+0.100]$ & $6.6\times10^{-3}$ \\
-B2 & $+0.042$ & $[+0.019,+0.067]$ & $8.7\times10^{-8}$ \\
-B3 & $+0.108$ & $[+0.076,+0.143]$ & $8.3\times10^{-12}$ \\
-B4 & $+0.225$ & $[+0.166,+0.283]$ & $1.6\times10^{-11}$ \\
-B5 & $+0.294$ & $[+0.233,+0.354]$ & $2.0\times10^{-16}$ \\
-B6 & $+0.181$ & $[+0.131,+0.233]$ & $2.7\times10^{-11}$ \\
-A1 & $+0.213$ & $[+0.158,+0.268]$ & $3.9\times10^{-13}$ \\
-A2 & $+0.054$ & $[+0.011,+0.099]$ & $3.9\times10^{-3}$ \\
-A3 & $+0.066$ & $[+0.039,+0.093]$ & $5.7\times10^{-8}$ \\
-A4 & $+0.367$ & $[+0.309,+0.426]$ & $2.7\times10^{-21}$ \\
-A5 & $+0.332$ & $[+0.275,+0.391]$ & $2.5\times10^{-21}$ \\
-A6 & $+0.052$ & $[+0.017,+0.087]$ & $2.3\times10^{-2}$ \\
-P2 & $-0.005$ & $[-0.020,+0.011]$ & $0.18$ (n.s.) \\
-P3 & $+0.049$ & $[+0.025,+0.073]$ & $6.2\times10^{-10}$ \\
-\bottomrule
-\end{tabular}
-\label{tab:sig}
-\end{center}
-\end{table}
 
 \subsection{Where the signal comes from}
 Decomposing the P1 score by~\eqref{eq:score}--\eqref{eq:terms} shows that the order-two
 term $S_2$ contributes, on average, $81.3\%$ of the top-ranked score, against $18.7\%$ for
 the order-one term $S_1$. The advantage of P1 is therefore not a re-weighting of marginal
 similarity but a genuinely second-order effect: shared rare accord \emph{pairs}, not
-shared individual accords, separate the correct dupe from the distractors.
+shared individual accords, separate the correct product from the distractors.
 
 \section{Discussion}\label{sec:discussion}
 
@@ -498,8 +471,8 @@ small in absolute terms yet robust: the $95\%$ bootstrap interval $[+0.019,+0.06
 excludes zero and the paired Wilcoxon test is decisive ($p=8.7\times10^{-8}$). That the
 small headline gain is a genuine second-order effect, not noise, follows from the
 decomposition: order-two terms supply $81.3\%$ of the top-ranked score, so shared rare
-accord \emph{pairs}---not individual accords---lift the correct dupe. The gain cannot be
-large by construction (Section~\ref{sec:problem}): with about $86\%$ of a dupe's accords
+accord \emph{pairs}---not individual accords---lift the correct product. The gain cannot be
+large by construction (Section~\ref{sec:problem}): with about $86\%$ of a target's accords
 already in the query, the marginal baseline starts from a high floor. Order-two structure
 thus helps reliably, not dramatically.
 
@@ -518,7 +491,7 @@ the baseline B2 ($0.454$); P1 still beats them significantly ($+0.054$, $+0.052$
 Sentence-BERT result is likewise only partial evidence against neural semantics: query and
 product text are asymmetric by construction---sparse accord lists against rich Indonesian
 prose---so B4 is penalized by a text-distribution mismatch independent of its semantic
-quality, and we refrain from concluding that neural semantics cannot help under a more
+quality, which stops short of showing that neural semantics cannot help under a more
 symmetric text regime.
 
 \subsection{Why the simplest method wins, and what it explains}
@@ -532,8 +505,8 @@ omission. The same design yields explanations for free: because the score is a s
 shared tokens, each Top-3 product exports \texttt{kg\_paths}---the shared accord-pairs
 $E_q\cap E_p$ with weight $\mathrm{idf}(e)^2$ and Edwards-wheel super-family---that are
 faithful by construction rather than post-hoc. For the query \textit{1~Million}, for
-instance, the gold product is supported by signature pairs such as \textit{amber--cinnamon}
-and \textit{cinnamon--warm spicy}. A counterfactual edge-ablation study quantifying their
+instance, the ground-truth product is supported by signature pairs such as
+\textit{amber--cinnamon} and \textit{cinnamon--warm spicy}. A counterfactual edge-ablation study quantifying their
 faithfulness beyond the order-one/order-two decomposition is left to a downstream
 explainability collaboration.
 
@@ -543,8 +516,8 @@ the catalog records no per-accord intensity, so products with identical accord s
 indistinguishable and an intensity-weighted representation cannot be tested. The evaluation
 set is small---$209$ queries, one relevant product each---so statistical power is bounded
 (hence the reported intervals and paired tests) and the headline effect is correspondingly
-modest. The dupe relation is a \emph{perceptual} proxy, not user satisfaction, and its
-high query--gold overlap is intrinsic to the task. The contribution is scoped to a finding
+modest. The imitation relation is a \emph{perceptual} proxy, not user satisfaction, and its
+high query--target overlap is intrinsic to the task. The contribution is scoped to a finding
 and a protocol, not a model: the matcher is parameter-free by design and offers no
 mechanism to exploit richer signals (intensity, symmetric text, interactions) should they
 appear. Finally, all results come from a single proprietary catalog in one fragrance
@@ -552,14 +525,14 @@ market, so external validity to other catalogs, domains, or larger vocabularies 
 and should not be assumed.
 
 \section{Conclusion}\label{sec:conclusion}
-This work studied interaction-free fragrance dupe retrieval and asked whether modeling
-the co-occurrence of accords improves retrieval over the marginal similarity that
-dominates perfume recommendation. The contribution is a finding and a protocol rather
-than a new model. We formalized the task and built a non-circular evaluation---a
+This work studied interaction-free, content-based perfume recommendation and asked whether
+modeling the co-occurrence of accords improves retrieval over the marginal similarity that
+dominates the field. The contribution is a finding and a protocol rather than a new model.
+The task is formalized as a retrieval problem behind a non-circular evaluation---a
 three-source firewall with externally verified query accords, a leakage audit, and a
-fifteen-method comparison ladder---and we made explicit why interaction-driven
-recommenders such as KGAT, LightGCN, and KGIN cannot be instantiated on a catalog with no
-user interactions. Within this protocol, a deliberately parameter-free matcher that
+fifteen-method comparison ladder---and the reason interaction-driven recommenders such as
+KGAT, LightGCN, and KGIN cannot be instantiated on a catalog with no user interactions is
+made explicit. Within this protocol, a deliberately parameter-free matcher that
 augments accord TF-IDF with order-two accord-pair tokens ranks first among all fifteen
 methods, beating every comparator across four paradigms---marginal similarity, neural
 embeddings, perceptual-taxonomy transport, and learned models.
