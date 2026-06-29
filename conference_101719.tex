@@ -421,6 +421,97 @@ of Section~\ref{sec:problem} is applied before embedding. The pipeline is implem
 Python with fixed seeds for full reproducibility; only the optional Sentence-BERT baseline
 requires a pretrained model download.
 
+\section{Results}\label{sec:results}
+
+\subsection{Retrieval accuracy}
+Table~\ref{tab:results} reports MRR, Hits@1, and Hits@3 for all fifteen methods. The
+proposed order-two matcher P1 reaches MRR $0.496$, the top score among the twelve
+comparison methods; the next best comparator, the gradient-boosting fusion A6, trails at
+$0.457$, and the primary TF-IDF baseline B2 at $0.454$. The learning-to-rank fusion P2 is
+numerically marginally higher ($0.500$) but, as shown below, is statistically
+indistinguishable from P1; we therefore treat the parameter-free P1 as the method of
+record and P2 as an ablation. The remaining paradigms fall clearly behind: neural
+embeddings (B6 $0.340$, B4 $0.272$, B5 $0.185$), the perceptual-taxonomy transport (A1
+$0.284$), and the high-dimensional learned models (A5 $0.150$, A4 $0.139$) are all well
+below the marginal baseline, while the moderate learned models (A2 $0.444$, A6 $0.457$)
+only reach it.
+
+\begin{table}[t]
+\caption{Retrieval accuracy of all fifteen methods (mean over 5 seeds for stochastic methods)}
+\begin{center}
+\begin{tabular}{llccc}
+\toprule
+\textbf{ID} & \textbf{Tier} & \textbf{MRR} & \textbf{Hits@1} & \textbf{Hits@3} \\
+\midrule
+\textbf{P1} & proposed   & \textbf{0.496} & \textbf{0.378} & \textbf{0.562} \\
+P2          & proposed   & 0.500          & 0.379          & 0.580 \\
+P3          & proposed   & 0.448          & 0.335          & 0.491 \\
+\midrule
+B1 & marginal   & 0.428 & 0.303 & 0.487 \\
+B2 & marginal   & 0.454 & 0.335 & 0.507 \\
+B3 & marginal   & 0.388 & 0.278 & 0.433 \\
+B4 & neural     & 0.272 & 0.163 & 0.311 \\
+B5 & neural     & 0.185 & 0.110 & 0.182 \\
+B6 & neural     & 0.340 & 0.233 & 0.371 \\
+A1 & perceptual & 0.284 & 0.174 & 0.306 \\
+A2 & learned    & 0.444 & 0.343 & 0.498 \\
+A3 & learned    & 0.433 & 0.303 & 0.500 \\
+A4 & learned    & 0.139 & 0.060 & 0.145 \\
+A5 & learned    & 0.150 & 0.072 & 0.150 \\
+A6 & learned    & 0.457 & 0.325 & 0.533 \\
+\bottomrule
+\end{tabular}
+\label{tab:results}
+\end{center}
+\end{table}
+
+\subsection{Significance}
+Table~\ref{tab:sig} pairs P1 against every other method across queries. P1 has a
+positive, significant advantage over all twelve comparators. The headline comparison
+against the marginal baseline B2 is modest but robust: $\Delta\mathrm{MRR}=+0.042$, with a
+$95\%$ bootstrap confidence interval of $[+0.019,+0.067]$ and Wilcoxon
+$p=8.7\times10^{-8}$. Margins are far larger over the neural and high-dimensional learned
+methods (e.g., $+0.225$ over B4, $+0.294$ over B5, $+0.367$ over A4). Against the moderate
+learned models the gain is small yet still significant ($+0.054$ over A2, $+0.052$ over
+A6), which is why we describe them as matching, not surpassing, the baseline rather than
+failing outright. The fusion variant P2 does not significantly differ from P1
+($\Delta\mathrm{MRR}=-0.005$, $p=0.18$), confirming that added learning capacity is
+unnecessary.
+
+\begin{table}[t]
+\caption{P1 versus each method: paired Wilcoxon test on reciprocal rank and bootstrap 95\% CI for $\Delta$MRR}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{vs.} & \textbf{$\Delta$MRR} & \textbf{95\% CI} & \textbf{Wilcoxon $p$} \\
+\midrule
+B1 & $+0.069$ & $[+0.040,+0.100]$ & $6.6\times10^{-3}$ \\
+B2 & $+0.042$ & $[+0.019,+0.067]$ & $8.7\times10^{-8}$ \\
+B3 & $+0.108$ & $[+0.076,+0.143]$ & $8.3\times10^{-12}$ \\
+B4 & $+0.225$ & $[+0.166,+0.283]$ & $1.6\times10^{-11}$ \\
+B5 & $+0.294$ & $[+0.233,+0.354]$ & $2.0\times10^{-16}$ \\
+B6 & $+0.181$ & $[+0.131,+0.233]$ & $2.7\times10^{-11}$ \\
+A1 & $+0.213$ & $[+0.158,+0.268]$ & $3.9\times10^{-13}$ \\
+A2 & $+0.054$ & $[+0.011,+0.099]$ & $3.9\times10^{-3}$ \\
+A3 & $+0.066$ & $[+0.039,+0.093]$ & $5.7\times10^{-8}$ \\
+A4 & $+0.367$ & $[+0.309,+0.426]$ & $2.7\times10^{-21}$ \\
+A5 & $+0.332$ & $[+0.275,+0.391]$ & $2.5\times10^{-21}$ \\
+A6 & $+0.052$ & $[+0.017,+0.087]$ & $2.3\times10^{-2}$ \\
+P2 & $-0.005$ & $[-0.020,+0.011]$ & $0.18$ (n.s.) \\
+P3 & $+0.049$ & $[+0.025,+0.073]$ & $6.2\times10^{-10}$ \\
+\bottomrule
+\end{tabular}
+\label{tab:sig}
+\end{center}
+\end{table}
+
+\subsection{Where the signal comes from}
+Decomposing the P1 score by~\eqref{eq:score}--\eqref{eq:terms} shows that the order-two
+term $S_2$ contributes, on average, $81.3\%$ of the top-ranked score, against $18.7\%$ for
+the order-one term $S_1$. The advantage of P1 is therefore not a re-weighting of marginal
+similarity but a genuinely second-order effect: shared rare accord \emph{pairs}, not
+shared individual accords, separate the correct dupe from the distractors.
+
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
