@@ -599,6 +599,38 @@ deliverable for a downstream explainability layer; a counterfactual edge-ablatio
 that would quantify their faithfulness beyond the order-one/order-two decomposition is
 left to that collaboration and is not claimed here.
 
+\section{Limitations}\label{sec:limitations}
+The scope of the contribution and the data regime impose several limitations, which we
+state plainly so that the result is not read more strongly than it warrants.
+
+\begin{itemize}
+\item \textbf{Binary accords.} Accords are modeled as presence/absence; the catalog
+records no per-accord intensity. Two products with identical accord sets are therefore
+indistinguishable to the matcher, and an intensity-weighted co-occurrence representation
+cannot be tested because the signal is absent from the source data.
+\item \textbf{Small evaluation set and limited power.} With $209$ queries and a single
+relevant product each, statistical power is bounded; we report confidence intervals and
+paired tests precisely for this reason. The headline effect over the marginal baseline is
+correspondingly modest ($\Delta\mathrm{MRR}=+0.042$), and the high accord overlap inherent
+to the dupe task (Section~\ref{sec:problem}) caps how large any second-order gain can be.
+\item \textbf{Proxy validity.} The dupe relation measures \emph{perceptual} imitation,
+not user satisfaction or purchase behavior. Because a dupe is deliberately formulated to
+smell like its target, query--gold accord overlap is high by construction; results should
+be read as a retrieval proxy rather than a measure of recommendation utility.
+\item \textbf{Scope of the novelty.} The contribution is a finding and a non-circular
+protocol, not a new model. The matcher is parameter-free \emph{by design}: as
+Section~\ref{sec:discussion} shows, added capacity overfits this data regime. Simplicity
+is thus a deliberate choice, but it also means the method offers no mechanism to exploit
+richer signals (intensity, text, interactions) should they become available.
+\item \textbf{Text-asymmetry confound.} As discussed in Section~\ref{sec:discussion}, the
+weak Sentence-BERT result is partly attributable to the asymmetry between sparse query
+text and rich product prose; it is therefore not clean evidence that semantic matching is
+useless, and a symmetric-text evaluation remains future work.
+\item \textbf{Generalization.} All results come from a single proprietary catalog in one
+fragrance market. Whether order-two co-occurrence retains its advantage on other catalogs,
+domains, or larger vocabularies is untested, and external validity should not be assumed.
+\end{itemize}
+
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
