@@ -512,6 +512,93 @@ the order-one term $S_1$. The advantage of P1 is therefore not a re-weighting of
 similarity but a genuinely second-order effect: shared rare accord \emph{pairs}, not
 shared individual accords, separate the correct dupe from the distractors.
 
+\section{Discussion}\label{sec:discussion}
+The results answer the two primary research questions of this study and qualify each
+answer with the caveats the data demand.
+
+\subsection{RQ1: does order-two co-occurrence beat marginal similarity?}
+Yes, but modestly. The proposed matcher P1 ranks first among all twelve comparison
+methods and improves on the marginal TF-IDF baseline B2 by
+$\Delta\mathrm{MRR}=+0.042$, an effect that is small in absolute terms yet robust: the
+$95\%$ bootstrap confidence interval $[+0.019,+0.067]$ excludes zero, and the paired
+Wilcoxon test is decisive ($p=8.7\times10^{-8}$). The decomposition of
+Section~\ref{sec:results} explains why a small headline gain is nonetheless a genuine
+second-order effect rather than baseline noise: order-two terms supply $81.3\%$ of the
+top-ranked score, so it is shared rare accord \emph{pairs}---not shared individual
+accords---that lift the correct dupe above the distractors. The reason the improvement
+cannot be large is structural and was anticipated in
+Section~\ref{sec:problem}: a dupe is engineered to smell like its target, so roughly
+$86\%$ of a dupe's accords already appear in the query, leaving the marginal baseline a
+high floor and the co-occurrence term only a narrow margin to exploit. The honest
+reading is that order-two structure helps reliably, not dramatically.
+
+\subsection{RQ2: do perceptual, neural, or learned structures help?}
+No structure surpasses the simple co-occurrence matcher, but the comparators fail at two
+clearly different magnitudes, and conflating them would overstate the result. The first
+group fails decisively. The perceptual-taxonomy transport A1 ($0.284$), the neural
+embeddings B5 ($0.185$), B6 ($0.340$), and B4 ($0.272$), and the high-dimensional learned
+models A4 ($0.139$) and A5 ($0.150$) all fall well below even the marginal baseline, with
+large and highly significant gaps to P1 (e.g., $+0.367$ over A4, $+0.294$ over B5,
+$p<10^{-16}$). These methods share a common mechanism of failure: each smooths or
+re-embeds the discrete accord-pair signal into a continuous latent space, and on a
+catalog with a single relevant product per query that smoothing erases exactly the rare,
+discriminative co-occurrences that the exact-match cosine preserves. The wheel transport
+averages over a perceptual geometry the data do not reward; the embeddings dissolve
+pair identity into dense vectors; and the high-capacity learned models overfit a severe
+one-positive-per-query imbalance. This is the empirical core of the finding: added
+representational capacity does not help here---it hurts.
+
+The second group is where the claim must be softened. The two moderate learned methods,
+PPMI with truncated SVD (A2, $0.444$) and the gradient-boosting fusion (A6, $0.457$),
+land essentially on top of the marginal baseline B2 ($0.454$). They do not collapse like
+A4 and A5; they simply fail to exceed the baseline. P1 still beats both by a small but
+significant margin ($+0.054$ over A2, $+0.052$ over A6), so the correct statement is that
+moderate learned structure \emph{matches} the marginal baseline without surpassing it,
+rather than that learned methods fail outright. RQ2 is thus answered with a graded
+conclusion: high-dimensional and perceptual structure overfit and lose decisively, while
+moderate learned structure only reaches the baseline---neither buys the second-order
+advantage that the parameter-free co-occurrence matcher obtains for free.
+
+\subsection{The Sentence-BERT result is partly an artifact of text asymmetry}
+The weak performance of the multilingual Sentence-BERT baseline B4 ($0.272$) should not
+be read as evidence that semantic text matching is inherently useless for this task. The
+query and product text are asymmetric by construction: product descriptions are rich
+Indonesian prose, whereas the externally sourced queries carry little more than an accord
+list, so the two sides of every comparison are drawn from different text distributions
+before any leakage stripping is applied. A sentence encoder is penalized by this
+mismatch independently of its semantic quality. We therefore attribute the B4 result
+jointly to the genuine advantage of exact accord-pair matching \emph{and} to query
+text being far sparser than product text, and we refrain from the stronger claim that
+neural semantics cannot contribute under a more symmetric text regime.
+
+\subsection{Why the simplest method wins: design, not omission}
+That the most capable comparators lose while the parameter-free P1 wins is consistent
+with a recurring lesson on small, imbalanced data, where flexible models overfit and
+simple baselines hold \cite{r14,r15,r16,r17}. Two internal controls confirm the point
+rather than merely asserting it. First, the learning-to-rank fusion P2 ($0.500$) is
+statistically indistinguishable from the bare cosine P1 ($\Delta\mathrm{MRR}=-0.005$,
+$p=0.18$): adding trained weights on top of the same features buys nothing, so we report
+the parameter-free P1 as the method of record. Second, the high-dimensional learned
+variants A4 and A5 do not merely fail to help but collapse to near the bottom of the
+table, the signature of overfitting under one-positive-per-query supervision. The
+simplicity of the matcher is therefore a deliberate design choice grounded in the data
+regime, not an unexamined limitation.
+
+\subsection{Faithful explanation paths}
+Because the cosine score is a sum over shared tokens, the same accord-pairs that produce
+a recommendation are emitted as its explanation. For each Top-3 product the matcher
+exports \texttt{kg\_paths}: the shared accord-pairs $E_q\cap E_p$, each annotated with
+its weight $\mathrm{idf}(e)^2$ and the Edwards-wheel super-family of its endpoints (or
+\textit{cross-family}), together with the shared single accords. For the query
+\textit{1~Million} the gold product surfaces at rank one supported by signature pairs
+such as \textit{amber--cinnamon} and \textit{cinnamon--warm spicy}, each carrying its
+exact contribution to the score. These paths are faithful by construction---they are the
+score decomposition itself, not a post-hoc rationalization---and discriminative because
+inverse document frequency down-weights ubiquitous hubs. We position them as an auditable
+deliverable for a downstream explainability layer; a counterfactual edge-ablation study
+that would quantify their faithfulness beyond the order-one/order-two decomposition is
+left to that collaboration and is not claimed here.
+
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
