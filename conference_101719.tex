@@ -39,9 +39,9 @@ accord-pair (order-two) tokens; its cosine score decomposes additively into
 order-one and order-two terms and yields faithful, auditable co-occurrence paths for
 explanation. Evaluation uses 340 products and 209 queries under leave-one-out
 ranking, with a three-source firewall whose query accords are independently verified
-from Fragrantica. Against thirteen methods spanning marginal similarity, neural
-embeddings, perceptual-taxonomy transport, and learned models, the proposed method
-attains the best mean reciprocal rank (MRR 0.496) and beats the TF-IDF baseline
+from Fragrantica. Against twelve comparison methods spanning marginal similarity,
+neural embeddings, perceptual-taxonomy transport, and learned models, the proposed
+method attains the best mean reciprocal rank (MRR 0.496) and beats the TF-IDF baseline
 (0.454) by a modest but robust margin (delta-MRR +0.042, 95\% CI [+0.019, +0.067],
 Wilcoxon p = 8.7e-8); order-two terms contribute 81.3\% of the top-ranked score.
 The effect is honestly modest, and limitations are discussed.
@@ -103,11 +103,13 @@ compared on this data.
 decomposes into order-one and order-two terms, paired with faithful-by-construction
 co-occurrence explanation paths for a downstream explainability layer.
 \item \textbf{Finding.} A first non-circular demonstration that order-two
-co-occurrence is the strongest of fourteen methods spanning four paradigms (marginal,
-neural embedding, perceptual taxonomy, and learned), reported with honest caveats: the
-gain over the TF-IDF baseline is modest (+0.042 MRR) but robust and significant; the
-Sentence-BERT loss is partly attributable to query-product text asymmetry; and the
-moderate learned methods only match, rather than fall far below, the baseline.
+co-occurrence ranks first in a fifteen-method benchmark, beating all twelve comparators
+across four paradigms --- marginal similarity, neural embeddings, perceptual-taxonomy
+transport, and learned models --- while the two proposed variants do not improve on it.
+The result is reported with honest caveats: the gain over the TF-IDF baseline is modest
+(+0.042 MRR) but robust and significant; the Sentence-BERT loss is partly attributable
+to query-product text asymmetry; and the moderate learned methods only match, rather
+than fall far below, the baseline.
 \item \textbf{Reproducibility.} A complete, deterministic benchmark of fourteen
 methods with paired significance testing and bootstrap confidence intervals.
 \end{itemize}
@@ -115,6 +117,64 @@ methods with paired significance testing and bootstrap confidence intervals.
 The remainder of the paper reviews related work; formalizes the problem and the
 non-circular firewall; presents the proposed method; describes the experimental setup;
 reports results; discusses them; and states limitations before concluding.
+
+\section{Related Work}\label{sec:related}
+
+\subsection{Content-based perfume recommendation}
+Perfume recommenders are overwhelmingly content-based and order-one. Lutan
+\cite{r23} surveys the field and identifies subjectivity and sparse sensory data as
+core obstacles. Nurmuthia \textit{et al.} \cite{r24} rank perfumes by cosine and
+Jaccard similarity over note descriptions, and Fannisa \textit{et al.} \cite{r28}
+report that a TF-IDF content-based filter outperforms a Word2Vec variant for perfume
+selection. These systems treat accords as independent terms; none tests whether
+modeling accord \emph{co-occurrence} improves retrieval, and none does so under a
+protocol that prevents the label from leaking into the features. The present work
+targets exactly this gap.
+
+\subsection{Co-occurrence and higher-order recommendation}
+Outside the fragrance domain, co-occurrence and higher-order structure are known to
+help. Higher-order graph neural networks \cite{r1}, item co-occurrence graphs for
+session-based recommendation \cite{r2}, graph-based feature crossing \cite{r3},
+multi-modal session models that look beyond raw co-occurrence \cite{r4}, and the use
+of negative co-occurrence signals \cite{r5} all improve accuracy. Crucially, every one
+of these methods consumes a user--item or session interaction signal. Our setting is
+interaction-free and content-only, so these techniques cannot be transferred directly;
+we instead lift co-occurrence into the content representation itself.
+
+\subsection{Knowledge-graph and explainable recommendation}
+Knowledge-graph recommenders such as KGAT \cite{r20} and reasoning- or path-based
+explainable models \cite{r18,r19,r21} produce relational explanations, but they depend
+on user--item interactions to learn entity embeddings and attention, and their paths
+can be only loosely tied to the predicted score. Because the catalog studied here has
+no interactions, KGAT, LightGCN, and KGIN are not applicable and are explicitly excluded
+from comparison. The proposed method instead derives explanation paths directly from the
+shared accord-pairs that produce the score, so the paths are discriminative (weighted by
+inverse document frequency) and faithful by construction.
+
+\subsection{Perceptual structure and optimal transport}
+Olfactory science represents odors with sensory wheels and perceptual maps
+\cite{r10,r11,r12,r13}, and a natural hypothesis is that imposing such perceptual
+geometry should aid retrieval. Transport-based distances on trees and graphs provide a
+principled way to compare distributions over such a structure \cite{r7,r8,r9,r9b}. We
+operationalize this hypothesis as a tree-Wasserstein distance over the Edwards
+fragrance wheel and test it directly; rather than assuming the structure helps, we
+measure whether it does.
+
+\subsection{Simple baselines on small, imbalanced data}
+A recurring lesson across domains is that flexible, high-capacity models fail to beat
+simple baselines when data are scarce or imbalanced: linear baselines remain
+competitive for gene-perturbation prediction \cite{r14}, and overfitting under class
+imbalance is well documented for small medical datasets \cite{r15,r16,r17}. Item
+cold-start recommenders likewise lean on content rather than capacity \cite{r25,r26,r27}.
+These results motivate our parameter-free design and frame the expectation, later
+confirmed, that learned and over-smoothed alternatives do not surpass a simple
+co-occurrence matcher on a sparse fragrance catalog.
+
+\subsection{Positioning}
+The intersection this work occupies --- interaction-free, non-circular, order-two
+co-occurrence for fragrance retrieval, used to test rather than assume the benefit of
+perceptual, neural, and learned structure --- is, to our knowledge, unaddressed by the
+literature above.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
