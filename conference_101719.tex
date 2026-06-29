@@ -59,8 +59,8 @@ content-based retrieval problem. Each product is described by a small set of
 olfactory \emph{accords} (e.g., \textit{amber}, \textit{woody}, \textit{warm spicy}),
 and a dupe is expected to share much of the accord profile of the global perfume it
 imitates. Existing perfume recommenders rank candidates almost exclusively by
-order-one accord similarity, typically cosine over TF-IDF vectors or Jaccard over
-accord sets \cite{r23,r24,r28}. Such marginal representations treat accords
+order-one accord similarity, typically cosine over term frequency--inverse document
+frequency (TF-IDF) vectors or Jaccard over accord sets \cite{r23,r24,r28}. Such marginal representations treat accords
 independently and discard the structure in which accords co-occur.
 
 A second constraint is decisive in practice: many real product catalogs record only
@@ -244,6 +244,103 @@ accord overlap between a query and its gold product is high (about $86\%$ of a d
 accords are contained in the query's accord list). This overlap is a genuine signal
 rather than a construction artifact, and it explains why even a strong method improves
 only modestly over the marginal baseline.
+
+\section{Proposed Method}\label{sec:method}
+The proposed matcher represents each fragrance not only by which accords it contains
+but by which accords \emph{co-occur} in it, weights both by rarity, and compares two
+fragrances by a single cosine that splits cleanly into a marginal term and a
+co-occurrence term. It has no trained parameters. Fig.~\ref{fig:arch} summarizes the
+pipeline.
+
+\subsection{Co-occurrence representation}
+For a fragrance $f$ with accord set $A(f)$, define its accord co-occurrence graph
+$G_f=(A(f),E_f)$ whose edges are the unordered accord pairs
+\begin{equation}
+E_f=\{(a,b)\;:\;a,b\in A(f),\ a<b\}. \label{eq:edges}
+\end{equation}
+The token set of $f$ is the union of its accords (unigrams) and its accord pairs
+(bigrams),
+\begin{equation}
+T(f)=A(f)\,\cup\,E_f. \label{eq:tokens}
+\end{equation}
+
+\subsection{Rarity weighting and normalization}
+Tokens are weighted by inverse document frequency over the catalog of $N$ products.
+With document frequency $\mathrm{df}(t)=\lvert\{f:t\in T(f)\}\rvert$,
+\begin{equation}
+\mathrm{idf}(t)=\log\!\frac{1+N}{1+\mathrm{df}(t)}+1. \label{eq:idf}
+\end{equation}
+Rare signature pairs receive a high weight, whereas ubiquitous hub accords (e.g.,
+\textit{woody}, \textit{citrus}) receive a low weight; the hub penalty is therefore
+automatic and parameter-free. Each fragrance becomes a sparse vector
+\begin{equation}
+v_f[t]=
+\begin{cases}
+\mathrm{idf}(t) & t\in T(f)\\
+0 & \text{otherwise,}
+\end{cases}
+\qquad v_f\leftarrow \frac{v_f}{\lVert v_f\rVert_2}. \label{eq:vector}
+\end{equation}
+
+\subsection{Similarity and additive decomposition}
+The score between a query $q$ and a product $p$ is the cosine of their token vectors,
+which separates exactly into an order-one (marginal) and an order-two (co-occurrence)
+contribution:
+\begin{equation}
+s(q,p)=\frac{S_1(q,p)+S_2(q,p)}{\lVert v_q\rVert\,\lVert v_p\rVert}, \label{eq:score}
+\end{equation}
+\begin{equation}
+S_1(q,p)\!=\!\!\!\sum_{a\in A(q)\cap A(p)}\!\!\!\mathrm{idf}(a)^2,
+\quad
+S_2(q,p)\!=\!\!\!\sum_{e\in E_q\cap E_p}\!\!\!\mathrm{idf}(e)^2. \label{eq:terms}
+\end{equation}
+Here $S_1$ rewards shared accords and $S_2$ rewards shared accord \emph{pairs}; because
+both blocks share one normalizer, the two terms add up to the full score. Empirically,
+the order-two term $S_2$ accounts for $81.3\%$ of the top-ranked score, confirming that
+co-occurrence, not marginal overlap, drives retrieval. Ranking the $340$ products by
+$s(q,p)$ in descending order and taking the three highest yields the Top-3 output.
+
+\subsection{Explanation paths}
+Because the score is a sum over shared tokens, every recommendation is explained by the
+same quantities that produced it. For each Top-3 product, the shared accord pairs
+$E_q\cap E_p$ are emitted as co-occurrence \emph{paths}, each carrying its weight
+$\mathrm{idf}(e)^2$ and the Edwards fragrance-wheel super-family \cite{r10} of its two
+accords (or \textit{cross-family} when they differ); shared single accords are emitted
+as node paths. The resulting \texttt{kg\_paths} are auditable and faithful by
+construction---they are not a post-hoc rationalization but the score decomposition
+itself---and serve a downstream explainability layer.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners, align=center, text width=0.80\linewidth,
+              inner sep=4pt, minimum height=6.5mm},
+  hbox/.style={draw, dashed, rounded corners, align=center, text width=0.80\linewidth,
+               inner sep=4pt},
+  arr/.style={-{Latex[length=2mm]}, thick}]
+\node[box] (q) {Query: accords $A(q)$ + global family};
+\node[box, below=3.5mm of q] (g) {Co-occurrence tokens $T(q)=A(q)\cup E_q$, IDF-weighted~$\star$};
+\node[box, below=3.5mm of g] (m) {Parameter-free matcher $s(q,p)=\langle v_q,v_p\rangle$ (order-1 $+$ order-2)};
+\node[box, below=3.5mm of m] (r) {Rank 340 products $\rightarrow$ Top-3};
+\node[box, below=3.5mm of r] (k) {\texttt{kg\_paths}: shared pairs grouped by wheel super-family~$\star$};
+\draw[arr] (q)--(g); \draw[arr] (g)--(m); \draw[arr] (m)--(r); \draw[arr] (r)--(k);
+\node[hbox, below=4mm of k] (h) {Non-circular harness~$\star$: leave-one-out, leakage firewall, 15-method ladder, Wilcoxon + bootstrap};
+\draw[arr, dashed] (k)--(h);
+\end{tikzpicture}
+\caption{Framework overview. A query is turned into an IDF-weighted co-occurrence token
+vector, matched against the $340$ products by a parameter-free cosine, and the Top-3 are
+returned with auditable \texttt{kg\_paths}. The whole pipeline is evaluated by a
+non-circular harness. $\star$ marks the three novelty points.}
+\label{fig:arch}
+\end{figure}
+
+\subsection{Design rationale}
+The matcher is deliberately parameter-free. On a catalog this sparse---$209$ queries,
+one relevant product each---added capacity overfits, as the experiments confirm: a
+learning-to-rank fusion does not significantly beat the bare cosine, and high-dimensional
+learned variants collapse, as reported in the results. Simplicity is thus a design
+decision grounded in the data regime, not an omission.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
