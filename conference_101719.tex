@@ -17,7 +17,7 @@
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
 
-\title{Order-2 Co-occurrence TF-IDF for Interaction-Free Perfume Recommendation}
+\title{Higher-Order Accord Co-occurrence for Interaction-Free Perfume Recommendation}
 
 \author{\IEEEauthorblockN{Azam Azri}
 \IEEEauthorblockA{\textit{Master's Program in Informatics} \\
@@ -360,12 +360,12 @@ of its semantic quality.
 \begin{table}[t]
 \caption{Order three versus twelve comparators (leave-one-out; stochastic methods
 mean$\pm$std over 5 seeds). Bold marks the method of record.}
-\begin{center}\small
+\begin{center}\footnotesize\setlength{\tabcolsep}{4pt}
 \begin{tabular}{llccc}
 \toprule
 \textbf{ID} & \textbf{Method} & \textbf{MRR} & \textbf{H@1} & \textbf{H@3} \\
 \midrule
-\textbf{O3} & \textbf{order-3 co-occurrence (ours)} & \textbf{0.508} & \textbf{0.397} & \textbf{0.567} \\
+\textbf{O3} & \textbf{order-3 co-occurrence} & \textbf{0.508} & \textbf{0.397} & \textbf{0.567} \\
 \midrule
 \multicolumn{5}{l}{\textit{Marginal}} \\
 B1 & Jaccard            & 0.428 & 0.303 & 0.487 \\
@@ -376,7 +376,7 @@ B4 & Sentence-BERT      & 0.272 & 0.163 & 0.311 \\
 B5 & Word2Vec           & 0.185{\scriptsize\,$\pm$0.011} & 0.110 & 0.182 \\
 B6 & node2vec           & 0.340{\scriptsize\,$\pm$0.013} & 0.233 & 0.371 \\
 \multicolumn{5}{l}{\textit{Perceptual transport}} \\
-A1 & Edwards tree-Wasserstein & 0.284 & 0.174 & 0.306 \\
+A1 & Edwards tree-W.\    & 0.284 & 0.174 & 0.306 \\
 \multicolumn{5}{l}{\textit{Learned}} \\
 A2 & PPMI--SVD          & 0.444{\scriptsize\,$\pm$0.001} & 0.343 & 0.498 \\
 A3 & signature LTR      & 0.433{\scriptsize\,$\pm$0.006} & 0.303 & 0.500 \\
@@ -419,45 +419,35 @@ order-three co-occurrence, not the individual accords, lifts the true product to
 \label{fig:case}
 \end{figure}
 
-\subsection{Threats to validity}
-Several limitations bound how strongly the result should be read. Accords are binary:
-the catalog records no per-accord intensity, so products with identical accord sets are
-indistinguishable and an intensity-weighted representation cannot be tested. The evaluation
-set is small---$209$ queries, one relevant product each---so statistical power is bounded
-(hence the reported intervals and paired tests) and the headline effect is correspondingly
-modest. The imitation relation is a \emph{perceptual} proxy, not user satisfaction, and its
-high query--target overlap is intrinsic to the task. The contribution is scoped to a finding
-and a protocol, not a model: the matcher is parameter-free by design and offers no
-mechanism to exploit richer signals (intensity, symmetric text, interactions) should they
-appear. Finally, all results come from a single proprietary catalog in one fragrance
-market, so external validity to other catalogs, domains, or larger vocabularies is untested
-and should not be assumed.
-
 \section{Conclusion}\label{sec:conclusion}
 This work studied interaction-free, content-based perfume recommendation and asked whether
-modeling the co-occurrence of accords improves retrieval over the marginal similarity that
-dominates the field. The contribution is a finding and a protocol rather than a new model.
-The task is formalized as a retrieval problem behind a non-circular evaluation---a
-three-source firewall with externally verified query accords, a leakage audit, and a
-fifteen-method comparison ladder---and the reason interaction-driven recommenders such as
-KGAT, LightGCN, and KGIN cannot be instantiated on a catalog with no user interactions is
-made explicit. Within this protocol, a deliberately parameter-free matcher that
-augments accord TF-IDF with order-two accord-pair tokens ranks first among all fifteen
-methods, beating every comparator across four paradigms---marginal similarity, neural
-embeddings, perceptual-taxonomy transport, and learned models.
+modeling accord co-occurrence improves retrieval over the marginal similarity that dominates
+the field. The contribution is a finding and a protocol, not a new model. The task is cast as
+retrieval behind a non-circular evaluation---a three-source firewall with externally verified
+query accords, a leakage audit, and a comparison against twelve methods across four
+paradigms---and the reason interaction-driven recommenders (KGAT, LightGCN, KGIN) cannot be
+instantiated on a catalog without user interactions is made explicit. Within this protocol, a
+deliberately parameter-free matcher that pools accord co-occurrences up to order three ranks
+first, beating every comparator; accuracy rises with interaction order and then saturates, so
+order three is the operating point. The headline gain over the TF-IDF baseline is modest but
+robust ($\Delta\mathrm{MRR}=+0.054$, $p=5.6\times10^{-9}$), and higher-order structure carries
+most of the signal (order three alone supplies $54\%$ of the top-ranked score). Adding a
+learning-to-rank layer over this representation yields no significant improvement ($p=0.18$),
+so the parameter-free form is retained.
 
-The result is reported with its caveats intact: the gain over the baseline is modest
-($\Delta\mathrm{MRR}=+0.042$) yet robust and significant ($p=8.7\times10^{-8}$), with
-$81.3\%$ of the top-ranked score from the order-two term; moderate learned methods match
-rather than fall below the baseline; the Sentence-BERT result is partly a text-asymmetry
-artifact; and a learning-to-rank fusion is indistinguishable from the bare cosine, so the
-parameter-free design reflects the sparse, one-positive-per-query regime, not an oversight.
-Future work follows from these limits: intensity-weighted co-occurrence if per-accord
-intensity becomes available, a symmetric-text evaluation to isolate the semantic
+The result is reported with its limits intact. (i)~The effect is modest in absolute terms.
+(ii)~All data come from a single proprietary catalog in one market, so external validity is
+untested. (iii)~Accords are binary, without per-accord intensity, so products with identical
+accord sets are indistinguishable. (iv)~The imitation relation is a perceptual proxy, not user
+satisfaction. (v)~Query--target accord overlap is high (about $86\%$), a ceiling intrinsic to
+the imitation task that bounds the achievable gain. (vi)~The advantage across paradigms is, to
+our knowledge, the first non-circular demonstration of its kind, but is claimed only for this
+setting. (vii)~The high-order plateau reflects the scarcity of shared high-order tokens in this
+catalog and may shift with richer accord vocabularies. Future work follows from these limits:
+intensity-weighted co-occurrence, a symmetric-text evaluation to isolate the semantic
 contribution of sentence encoders, a counterfactual edge-ablation study to quantify the
-faithfulness of the exported \texttt{kg\_paths}, and replication on further catalogs and
-domains. The broader message is that a non-circular protocol can convert a plausible
-intuition into a measured, honestly bounded finding.
+faithfulness of the exported \texttt{kg\_paths}, and replication across further catalogs and
+domains.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
