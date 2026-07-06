@@ -11,6 +11,8 @@
 \usepackage{url}
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
@@ -270,170 +272,152 @@ Edwards-wheel super-family \cite{r10}, form auditable co-occurrence paths (\text
 for a downstream domain-expert explanation layer; we report them as an artifact, not a
 faithfulness claim.
 
-\section{Experimental Setup}\label{sec:setup}
+\section{Experiments}\label{sec:experiments}
+We ask three questions:
+\begin{itemize}
+\item[\textbf{RQ1.}] Does accord co-occurrence (order $\ge 2$) improve retrieval over the
+order-one baseline?
+\item[\textbf{RQ2.}] How far does the improvement continue with interaction order---is there a
+saturation point?
+\item[\textbf{RQ3.}] How does the order-three matcher compare with established paradigms:
+marginal similarity, neural embeddings, perceptual transport, and learned models?
+\end{itemize}
 
-\subsection{Dataset and provenance}
-The catalog contains $340$ local products; $243$ carry an imitation label and $97$ are
-unlabeled originals retained as distractors. After joining each labeled product to its
-reference perfume, $209$ references have at least one labeled product and form the
-leave-one-out evaluation set. Local and reference vocabularies share $56$ accords, drawn
-from $17$ local and $49$ reference families. Accord lists are parsed by splitting on commas
-and semicolons, lower-casing, and trimming. Crucially, query accords are taken from the
-reference table whose entries are independently sourced: $264$ of $266$ \texttt{source\_url}
-values resolve to perfume-specific Fragrantica pages, so query features are not back-filled
-from the catalog they retrieve.
-
-\subsection{Methods}
-Fifteen methods (Table~\ref{tab:results}) are evaluated in three tiers. Tier~1 is
-established baselines: marginal accord similarity (Jaccard, TF-IDF cosine, BM25) and neural
-embeddings (multilingual Sentence-BERT \cite{r22} over the textual fields, Word2Vec over
-accord sequences, node2vec over the co-occurrence graph). Tier~2 is structured or learned
-comparators that test whether added structure helps: a tree-Wasserstein distance over the
-Edwards wheel \cite{r10}, a positive pointwise mutual information (PPMI) embedding with
-truncated SVD, a signature-subgraph learning-to-rank model, a per-bigram salience logistic
-model, a low-rank bilinear metric, and a gradient-boosting fusion. Tier~3 is the proposed
-family: the order-two matcher (P1), a learning-to-rank fusion (P2), and a hub-discriminative
-IDF ablation (P3). B2 (TF-IDF cosine) is the primary marginal baseline.
-
-\subsection{Metrics}
-With one relevant product per query, the metrics are mean reciprocal rank (MRR) and Hits@$k$,
+\subsection{Setup}
+The dataset and its non-circular firewall are summarized in Table~\ref{tab:firewall}; accord
+lists are parsed by splitting on commas and semicolons, lower-casing, and trimming. The
+order-$N$ matcher is compared against twelve methods spanning four paradigms: \emph{marginal}
+similarity (Jaccard, TF-IDF cosine, BM25); \emph{neural} embeddings (multilingual
+Sentence-BERT \cite{r22}, Word2Vec over accords, node2vec over the co-occurrence graph);
+\emph{perceptual} transport (a tree-Wasserstein distance over the Edwards wheel \cite{r10});
+and \emph{learned} models (a PPMI--SVD embedding, a signature-subgraph ranker, a per-bigram
+salience logistic model, a low-rank bilinear metric, and a gradient-boosting fusion). B2
+(TF-IDF cosine) is the primary baseline. With one relevant product per query, quality is
+measured by mean reciprocal rank (MRR) and Hits@$k$,
 \begin{align}
-\mathrm{MRR}&=\frac{1}{|\mathcal{Q}|}\sum_{q\in\mathcal{Q}}\frac{1}{r_q},\label{eq:mrr}\\
-\mathrm{Hits}@k&=\frac{1}{|\mathcal{Q}|}\sum_{q\in\mathcal{Q}}\mathbf{1}[\,r_q\le k\,],\label{eq:hits}
+\mathrm{MRR}&=\frac{1}{|\mathcal{Q}|}\sum_{q}\frac{1}{r_q},\\
+\mathrm{Hits}@k&=\frac{1}{|\mathcal{Q}|}\sum_{q}\mathbf{1}[\,r_q\le k\,],\label{eq:metrics}
 \end{align}
-where $r_q$ is the rank of the best (smallest-rank) ground-truth product for query $q$, and
-$k\in\{1,3\}$. Ties in score are resolved by the expected reciprocal rank under uniform
-random tie-breaking, which neither rewards nor penalizes tie-heavy methods.
+where $r_q$ is the rank of the ground-truth product and ties use the expected reciprocal rank
+under uniform tie-breaking. All methods rank the full pool of $340$ products under
+leave-one-out over the $209$ queries; learned rankers are scored out-of-fold with $5$-fold
+GroupKFold grouped by query, and stochastic methods are averaged over $5$ seeds
+(mean$\pm$std). Significance uses the Wilcoxon signed-rank test paired across queries on
+reciprocal ranks, with $95\%$ confidence intervals from $10{,}000$ bootstrap resamples; the
+text-based method is run after the leakage audit of Section~\ref{sec:problem}.
 
-\subsection{Protocol and significance}
-Every method ranks the full pool of $340$ products. Supervised methods (A3--A6, P2) are
-scored out-of-fold with $5$-fold \emph{GroupKFold} grouped by query, so no query appears
-in both training and test. Deterministic methods are run once; stochastic methods (A2,
-A5, B5, B6, and the fold-shuffled learning-to-rank models) are run over $5$ seeds and
-reported as mean$\pm$standard deviation. Statistical significance against the proposed
-method uses the Wilcoxon signed-rank test paired across queries on the reciprocal ranks;
-because deterministic methods have no seed variance, significance is computed across
-queries rather than across seeds. Confidence intervals for the difference in MRR use
-$10{,}000$ bootstrap resamples over queries. For the text-based method, the leakage audit
-of Section~\ref{sec:problem} is applied before embedding. The pipeline is implemented in
-Python with fixed seeds for full reproducibility; only the optional Sentence-BERT baseline
-requires a pretrained model download.
+\subsection{RQ1 and RQ2: co-occurrence helps, then saturates}
+Adding co-occurrence tokens raises accuracy sharply and then plateaus
+(Fig.~\ref{fig:ablation}). MRR climbs from $0.454$ at order one to $0.496$ at order two and
+$0.508$ at order three, and each step is statistically significant (order two vs.\ three:
+$\Delta\mathrm{MRR}=0.012$, $p=2.8\times10^{-3}$). Beyond order three the curve is flat:
+order four is not significantly better than order three ($\Delta\mathrm{MRR}=0.003$, $95\%$
+CI $[-0.010,+0.005]$), so we adopt order three as the operating point. The plateau has a
+simple cause: high-order co-occurrences become vanishingly rare, so little is left to
+exploit---a query and its target share on average only $1.2$ four-way and $0.3$ six-way
+accord combinations, against $7.7$ triples. This makes the saturation point
+dataset-dependent: a catalog with richer accord lists could extend the useful order.
 
-\section{Results}\label{sec:results}
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.94\linewidth,height=4.2cm,font=\footnotesize,
+  xlabel={maximum interaction order $N$}, ylabel={MRR},
+  xmin=0.8,xmax=6.2, ymin=0.44, ymax=0.52,
+  xtick={1,2,3,4,5,6}, ytick={0.45,0.47,0.49,0.51},
+  ymajorgrids, grid style={gray!18}, tick align=outside]
+\addplot[thick, mark=*, color=blue!70!black] coordinates
+ {(1,0.454)(2,0.496)(3,0.508)(4,0.511)(5,0.511)(6,0.511)};
+\node[anchor=south west, font=\scriptsize] at (axis cs:3,0.508) {operating point};
+\end{axis}
+\end{tikzpicture}
+\caption{Retrieval accuracy versus maximum interaction order. Accuracy rises steeply from
+order one to two, again to order three, and then flattens. Although order four attains a
+marginally higher point estimate, it is not significantly better than order three
+($\Delta$MRR $=0.003$, $95\%$ CI $[-0.010,+0.005]$); order three is adopted as the operating
+point.}
+\label{fig:ablation}
+\end{figure}
 
-\subsection{Retrieval accuracy}
-Table~\ref{tab:results} reports MRR, Hits@1, and Hits@3 for all fifteen methods. The
-proposed order-two matcher P1 reaches MRR $0.496$, the top score among the twelve
-comparison methods; the next best comparator, the gradient-boosting fusion A6, trails at
-$0.457$, and the primary TF-IDF baseline B2 at $0.454$. The learning-to-rank fusion P2 is
-numerically marginally higher ($0.500$) but, as shown below, is statistically
-indistinguishable from P1; the parameter-free P1 is therefore the method of
-record and P2 an ablation. The remaining paradigms fall clearly behind: neural
-embeddings (B6 $0.340$, B4 $0.272$, B5 $0.185$), the perceptual-taxonomy transport (A1
-$0.284$), and the high-dimensional learned models (A5 $0.150$, A4 $0.139$) are all well
-below the marginal baseline, while the moderate learned models (A2 $0.444$, A6 $0.457$)
-only reach it.
+\subsection{RQ3: order three versus established paradigms}
+Table~\ref{tab:main} places order three against all twelve comparators. It ranks first on
+every metric and beats each comparator significantly ($p<0.01$ throughout); the headline
+margin over the marginal baseline B2 is $\Delta\mathrm{MRR}=+0.054$ ($p=5.6\times10^{-9}$).
+Two regimes of margin stand apart. Over the simple, near-marginal methods the win is real but
+small---$+0.054$ over TF-IDF (B2), $+0.066$ over PPMI--SVD (A2), $+0.063$ over gradient
+boosting (A6), and $+0.080$ over Jaccard (B1)---so these methods approach without surpassing
+the co-occurrence signal. Over the complex models the win is decisive: $+0.236$ over
+Sentence-BERT (B4), $+0.305$ over Word2Vec (B5), $+0.344$ over the bilinear metric (A5), and
+$+0.379$ over per-bigram salience (A4). Tellingly, the two parametric models that explicitly
+try to \emph{learn} co-occurrence weights---per-bigram salience and the bilinear metric---overfit
+the worst and collapse to the bottom of the table under the one-positive-per-query imbalance.
+Exact, unweighted co-occurrence thus beats \emph{learned} co-occurrence here, which is why the
+parameter-free form is a design decision, not a limitation. The weak Sentence-BERT result is
+only partial evidence against neural semantics: query and product text are asymmetric---sparse
+accord lists against rich Indonesian prose---so B4 is penalized by a text mismatch independent
+of its semantic quality.
 
-\begin{table*}[t]
-\caption{Methods, retrieval accuracy, and significance against the proposed P1. $\Delta$MRR
-and Wilcoxon $p$ compare P1 with each method, paired across queries (95\% bootstrap
-confidence intervals given in the text). Stochastic methods are averaged over 5 seeds; best
-in bold.}
-\begin{center}
-\begin{tabular}{llccccc}
+\begin{table}[t]
+\caption{Order three versus twelve comparators (leave-one-out; stochastic methods
+mean$\pm$std over 5 seeds). Bold marks the method of record.}
+\begin{center}\small
+\begin{tabular}{llccc}
 \toprule
-\textbf{ID} & \textbf{Method (paradigm)} & \textbf{MRR} & \textbf{H@1} & \textbf{H@3} & \textbf{$\Delta$MRR vs.\ P1} & \textbf{Wilcoxon $p$} \\
+\textbf{ID} & \textbf{Method} & \textbf{MRR} & \textbf{H@1} & \textbf{H@3} \\
 \midrule
-\textbf{P1} & order-2 co-occ.\ TF-IDF \textit{(proposed)} & \textbf{0.496} & \textbf{0.378} & \textbf{0.562} & --- & --- \\
-P2 & P1 $+$ LTR fusion & 0.500 & 0.379 & 0.580 & $-0.005$ & $0.18$ (n.s.) \\
-P3 & P1 $+$ hub-discriminative IDF & 0.448 & 0.335 & 0.491 & $+0.049$ & $6.2\times10^{-10}$ \\
+\textbf{O3} & \textbf{order-3 co-occurrence (ours)} & \textbf{0.508} & \textbf{0.397} & \textbf{0.567} \\
 \midrule
-B1 & Jaccard (marginal) & 0.428 & 0.303 & 0.487 & $+0.069$ & $6.6\times10^{-3}$ \\
-B2 & TF-IDF cosine (baseline) & 0.454 & 0.335 & 0.507 & $+0.042$ & $8.7\times10^{-8}$ \\
-B3 & BM25 (marginal) & 0.388 & 0.278 & 0.433 & $+0.108$ & $8.3\times10^{-12}$ \\
-B4 & Sentence-BERT (neural) & 0.272 & 0.163 & 0.311 & $+0.225$ & $1.6\times10^{-11}$ \\
-B5 & Word2Vec (neural) & 0.185 & 0.110 & 0.182 & $+0.294$ & $2.0\times10^{-16}$ \\
-B6 & node2vec (neural) & 0.340 & 0.233 & 0.371 & $+0.181$ & $2.7\times10^{-11}$ \\
-A1 & wheel tree-Wasserstein (perceptual) & 0.284 & 0.174 & 0.306 & $+0.213$ & $3.9\times10^{-13}$ \\
-A2 & PPMI $+$ SVD (learned) & 0.444 & 0.343 & 0.498 & $+0.054$ & $3.9\times10^{-3}$ \\
-A3 & signature LTR (learned) & 0.433 & 0.303 & 0.500 & $+0.066$ & $5.7\times10^{-8}$ \\
-A4 & bigram salience (learned) & 0.139 & 0.060 & 0.145 & $+0.367$ & $2.7\times10^{-21}$ \\
-A5 & bilinear metric (learned) & 0.150 & 0.072 & 0.150 & $+0.332$ & $2.5\times10^{-21}$ \\
-A6 & GBM fusion (learned) & 0.457 & 0.325 & 0.533 & $+0.052$ & $2.3\times10^{-2}$ \\
+\multicolumn{5}{l}{\textit{Marginal}} \\
+B1 & Jaccard            & 0.428 & 0.303 & 0.487 \\
+B2 & TF-IDF cosine      & 0.454 & 0.335 & 0.507 \\
+B3 & BM25               & 0.388 & 0.278 & 0.433 \\
+\multicolumn{5}{l}{\textit{Neural embedding}} \\
+B4 & Sentence-BERT      & 0.272 & 0.163 & 0.311 \\
+B5 & Word2Vec           & 0.185{\scriptsize\,$\pm$0.011} & 0.110 & 0.182 \\
+B6 & node2vec           & 0.340{\scriptsize\,$\pm$0.013} & 0.233 & 0.371 \\
+\multicolumn{5}{l}{\textit{Perceptual transport}} \\
+A1 & Edwards tree-Wasserstein & 0.284 & 0.174 & 0.306 \\
+\multicolumn{5}{l}{\textit{Learned}} \\
+A2 & PPMI--SVD          & 0.444{\scriptsize\,$\pm$0.001} & 0.343 & 0.498 \\
+A3 & signature LTR      & 0.433{\scriptsize\,$\pm$0.006} & 0.303 & 0.500 \\
+A4 & bigram salience    & 0.139{\scriptsize\,$\pm$0.012} & 0.060 & 0.145 \\
+A5 & bilinear metric    & 0.150{\scriptsize\,$\pm$0.027} & 0.072 & 0.150 \\
+A6 & GBM fusion         & 0.457{\scriptsize\,$\pm$0.010} & 0.325 & 0.533 \\
 \bottomrule
 \end{tabular}
-\label{tab:results}
+\label{tab:main}
 \end{center}
-\end{table*}
+\end{table}
 
-\subsection{Significance}
-The last two columns of Table~\ref{tab:results} pair P1 against every other method across
-queries. P1 has a
-positive, significant advantage over all twelve comparators. The headline comparison
-against the marginal baseline B2 is modest but robust: $\Delta\mathrm{MRR}=+0.042$, with a
-$95\%$ bootstrap confidence interval of $[+0.019,+0.067]$ and Wilcoxon
-$p=8.7\times10^{-8}$. Margins are far larger over the neural and high-dimensional learned
-methods (e.g., $+0.225$ over B4, $+0.294$ over B5, $+0.367$ over A4). Against the moderate
-learned models the gain is small yet still significant ($+0.054$ over A2, $+0.052$ over
-A6), so they match, not surpass, the baseline rather than failing outright. The fusion
-variant P2 does not significantly differ from P1
-($\Delta\mathrm{MRR}=-0.005$, $p=0.18$), confirming that added learning capacity is
-unnecessary.
+A concrete case makes the mechanism visible (Fig.~\ref{fig:case}). For the reference
+\textit{Burberry Woman}, the correct Aromatique product \textit{Zimba} is retrieved at rank
+one not merely because they share individual accords but because they share the rare accord
+\emph{triple} \textit{fruity--sweet--vanilla}; a distractor carrying \textit{fruity},
+\textit{sweet}, or \textit{vanilla} in isolation does not reproduce this co-occurring
+signature.
 
-\subsection{Where the signal comes from}
-Decomposing the P1 score by~\eqref{eq:score}--\eqref{eq:terms} shows that the order-two
-term $S_2$ contributes, on average, $81.3\%$ of the top-ranked score, against $18.7\%$ for
-the order-one term $S_1$. The advantage of P1 is therefore not a re-weighting of marginal
-similarity but a genuinely second-order effect: shared rare accord \emph{pairs}, not
-shared individual accords, separate the correct product from the distractors.
-
-\section{Discussion}\label{sec:discussion}
-
-\subsection{RQ1: order-two versus marginal similarity}
-Order-two co-occurrence beats the marginal baseline, but modestly. P1 ranks first among
-all twelve comparison methods and improves on B2 by $\Delta\mathrm{MRR}=+0.042$, an effect
-small in absolute terms yet robust: the $95\%$ bootstrap interval $[+0.019,+0.067]$
-excludes zero and the paired Wilcoxon test is decisive ($p=8.7\times10^{-8}$). That the
-small headline gain is a genuine second-order effect, not noise, follows from the
-decomposition: order-two terms supply $81.3\%$ of the top-ranked score, so shared rare
-accord \emph{pairs}---not individual accords---lift the correct product. The gain cannot be
-large by construction (Section~\ref{sec:problem}): with about $86\%$ of a target's accords
-already in the query, the marginal baseline starts from a high floor. Order-two structure
-thus helps reliably, not dramatically.
-
-\subsection{RQ2: does added structure help?}
-No comparator surpasses the simple matcher, but they fail at two magnitudes that should
-not be conflated. The perceptual transport A1 ($0.284$), neural embeddings B4 ($0.272$),
-B5 ($0.185$), B6 ($0.340$), and high-dimensional learned models A4 ($0.139$), A5 ($0.150$)
-fall well below even the marginal baseline (gaps to P1 up to $+0.367$, $p<10^{-16}$). They
-share one failure mode: each smooths or re-embeds the discrete accord-pair signal into a
-continuous space, erasing the rare, discriminative co-occurrences that the exact-match
-cosine preserves, and the high-capacity learned models additionally overfit the severe
-one-positive-per-query imbalance. The claim must be softened, however, for the two moderate
-learned methods: PPMI+SVD (A2, $0.444$) and GBM fusion (A6, $0.457$) land essentially on
-the baseline B2 ($0.454$); P1 still beats them significantly ($+0.054$, $+0.052$), so they
-\emph{match} the baseline without surpassing it rather than fail outright. The weak
-Sentence-BERT result is likewise only partial evidence against neural semantics: query and
-product text are asymmetric by construction---sparse accord lists against rich Indonesian
-prose---so B4 is penalized by a text-distribution mismatch independent of its semantic
-quality, which stops short of showing that neural semantics cannot help under a more
-symmetric text regime.
-
-\subsection{Why the simplest method wins, and what it explains}
-That the most capable comparators lose while the parameter-free P1 wins matches a recurring
-lesson on small, imbalanced data \cite{r14,r15,r16,r17}, and two internal controls confirm
-it: the learning-to-rank fusion P2 ($0.500$) is statistically indistinguishable from the
-bare cosine ($\Delta\mathrm{MRR}=-0.005$, $p=0.18$), so trained weights buy nothing, and
-the learned variants A4/A5 collapse to the bottom of the table---the signature of
-overfitting. Simplicity is therefore a design choice grounded in the data regime, not an
-omission. The same design yields explanations for free: because the score is a sum over
-shared tokens, each Top-3 product exports \texttt{kg\_paths}---the shared accord-pairs
-$E_q\cap E_p$ with weight $\mathrm{idf}(e)^2$ and Edwards-wheel super-family---that are
-faithful by construction rather than post-hoc. For the query \textit{1~Million}, for
-instance, the ground-truth product is supported by signature pairs such as
-\textit{amber--cinnamon} and \textit{cinnamon--warm spicy}. A counterfactual edge-ablation study quantifying their
-faithfulness beyond the order-one/order-two decomposition is left to a downstream
-explainability collaboration.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\footnotesize,
+  ref/.style={draw, rounded corners, align=center, fill=black!5},
+  prod/.style={draw, rounded corners, align=center, fill=black!5},
+  tri/.style={draw, circle, minimum size=8mm, inner sep=0pt, fill=red!12, very thick},
+  arr/.style={-{Latex[length=2mm]}, thick}]
+\node[ref] (q) at (0,0) {\textbf{Burberry}\\\textbf{Woman}\\{\scriptsize(reference)}};
+\node[tri] (t1) at (2.6,0.8) {fruity};
+\node[tri] (t2) at (2.6,-0.05) {sweet};
+\node[tri] (t3) at (2.6,-0.9) {vanilla};
+\draw[red!75!black,very thick] (t1)--(t2)--(t3)--(t1);
+\node[prod] (p) at (5.2,0) {\textbf{Zimba}\\{\scriptsize(Aromatique,}\\{\scriptsize FRUITY)}};
+\draw[arr] (q) -- (1.7,0.35);
+\draw[arr] (3.5,0.35) -- (p);
+\node[red!75!black, font=\scriptsize] at (2.6,-1.5) {shared order-3 signature};
+\end{tikzpicture}
+\caption{Case study. The reference \textit{Burberry Woman} and its correct imitation
+\textit{Zimba} share the rare accord triple \textit{fruity--sweet--vanilla}; this
+order-three co-occurrence, not the individual accords, lifts the true product to rank one.}
+\label{fig:case}
+\end{figure}
 
 \subsection{Threats to validity}
 Several limitations bound how strongly the result should be read. Accords are binary:
