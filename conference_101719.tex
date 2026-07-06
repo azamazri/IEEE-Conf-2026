@@ -113,111 +113,72 @@ as ground truth), under which we also explain why interaction-based recommenders
 cannot be compared on this data.
 \end{itemize}
 
-\section{Related Work}\label{sec:related}
+\section{Problem Formulation and Non-circular Protocol}\label{sec:problem}
 
-\subsection{Content-based perfume recommendation}
-Perfume recommenders are overwhelmingly content-based and order-one. Lutan \cite{r23}
-surveys the field and identifies subjectivity and sparse sensory data as core obstacles;
-Nurmuthia \textit{et al.} \cite{r24} rank perfumes by cosine and Jaccard similarity over
-notes, and Fannisa \textit{et al.} \cite{r28} report that a TF-IDF content-based filter
-outperforms a Word2Vec variant. These systems treat accords as independent terms; none
-tests whether modeling accord \emph{co-occurrence} helps, and none does so under a
-protocol that prevents the label from leaking into the features---exactly the gap this
-work targets.
-
-\subsection{Co-occurrence, higher-order, and explainable recommendation}
-Outside fragrance, co-occurrence and higher-order structure reliably help: higher-order
-graph neural networks \cite{r1}, item co-occurrence graphs for session-based
-recommendation \cite{r2}, graph-based feature crossing \cite{r3}, multi-modal session
-models \cite{r4}, and negative co-occurrence signals \cite{r5} all improve accuracy.
-Crucially, every one consumes a user--item or session signal. Knowledge-graph and
-path-based explainable recommenders---KGAT \cite{r20} and related reasoning models
-\cite{r18,r19,r21}---likewise depend on interactions to learn embeddings and attention,
-and their paths can be only loosely tied to the score. Because the catalog studied here
-has no interactions, KGAT, LightGCN, and KGIN cannot be instantiated and are excluded from
-comparison. The proposed method instead lifts co-occurrence into the content representation
-itself and derives explanation paths directly from the shared accord-pairs that produce the
-score, so they are discriminative (weighted by inverse document frequency) and faithful by
-construction.
-
-\subsection{Perceptual structure, transport, and simple baselines}
-Olfactory science represents odors with sensory wheels and perceptual maps
-\cite{r10,r11,r12,r13}, suggesting that imposing such geometry should aid retrieval, and
-transport-based distances on trees and graphs offer a principled way to compare
-distributions over it \cite{r7,r8,r9,r9b}. This hypothesis is operationalized here as a
-tree-Wasserstein distance over the Edwards wheel and measured---rather than assumed. A
-countervailing lesson is that flexible, high-capacity models fail to beat simple baselines
-on scarce or imbalanced data: linear baselines remain competitive for gene-perturbation
-prediction \cite{r14}, overfitting under class imbalance is well documented on small
-datasets \cite{r15,r16,r17}, and cold-start recommenders lean on content rather than
-capacity \cite{r25,r26,r27}. These motivate the parameter-free design adopted here. To the
-best of current knowledge, the intersection studied---interaction-free, non-circular,
-order-two co-occurrence for perfume recommendation, used to test the benefit of perceptual,
-neural, and learned structure---is unaddressed by this literature.
-
-\section{Problem Formulation}\label{sec:problem}
-
-\subsection{Problem setup}
-Let $\mathcal{P}=\{p_1,\dots,p_N\}$ be the catalog of local products, with $N=340$. Each
-product $p$ carries a set of olfactory accords $A(p)\subseteq\mathcal{V}$ and a family
-label, where $\mathcal{V}$ is the accord vocabulary. Let $\mathcal{Q}$ be the set of
-reference perfumes (branded originals); each reference $q$ carries accords $A(q)$ and a
-family. The imitation (``dupe'') relation gives, for each reference, a ground-truth set
+\subsection{Task and interaction order}
+Let $\mathcal{P}=\{p_1,\dots,p_M\}$ be the catalog of local products, $M=340$; each product
+$p$ has an accord set $A(p)\subseteq\mathcal{V}$ and a family label, where $\mathcal{V}$ is
+the accord vocabulary. Let $\mathcal{Q}$ be the set of reference perfumes (branded
+originals); each reference $q$ has accords $A(q)$. The imitation relation gives a
+ground-truth set
 \begin{equation}
 g(q)=\{\,p\in\mathcal{P}\;:\;\textit{inspired\_by}(p)=q\,\}, \label{eq:gold}
 \end{equation}
-the products built to smell like $q$. A method scores every product, $s(q,p)$, and ranks
-the whole catalog; quality is the rank of the ground-truth product, measured by the metrics
-defined later. Of the $340$ products, $243$ carry a label and $97$ are unlabeled originals
-kept in the pool as genuine distractors; $209$ references have at least one labeled product
-and form the leave-one-out evaluation set. Local and reference vocabularies share $56$
-accords.
+the products built to smell like $q$. A method scores every product, $s(q,p)$, ranks the
+whole catalog, and is judged by the rank of the ground-truth product. Of the $340$ products,
+$243$ carry a label and $97$ are unlabeled originals kept as genuine distractors; $209$
+references have at least one labeled product and form the leave-one-out evaluation set.
 
-The deployed recommender and the evaluation share an \emph{identical} scoring engine; they
-differ only in the query source (free user text or a reference perfume) and in whether a
-ground-truth answer exists. A reference perfume is never returned as output: the pool is the
-local catalog.
+The key quantity is \emph{interaction order}, the content-only analogue of the high-order
+connectivity exploited by knowledge-graph recommenders \cite{r20}. The order-$k$ tokens of a
+fragrance $f$ are its accord subsets of size $k$,
+\begin{equation}
+T_k(f)=\{\,S\subseteq A(f)\;:\;|S|=k\,\}, \label{eq:order}
+\end{equation}
+so order one is the single accords (marginal similarity), order two the co-occurring pairs,
+and order three the co-occurring triples. A representation of order $N$ uses all tokens of
+order $1\le k\le N$.
+
+\subsection{Deployment versus evaluation}
+The deployed recommender and the benchmark share an \emph{identical} scoring engine and
+differ only in query source and in whether a ground-truth answer exists. In deployment the
+query is a customer's free preference and any product may be returned---an in-house imitation
+or an original. In evaluation the query is a reference perfume, because only there does a
+held-out answer exist (the imitation edge); a reference perfume is never itself returned,
+since the pool is the local catalog. The $97$ originals without a labeled imitation are thus
+not discarded but retained in the pool as \emph{non-target} candidates, which makes the
+retrieval realistically hard.
 
 \subsection{A non-circular firewall}
-The central methodological risk is circularity: if the query features were copied from the
-very products they are meant to retrieve, any accord overlap would be a tautology. A
-three-source separation guards against this (Table~\ref{tab:firewall}). Query accords are
-sourced independently from Fragrantica---$264$ of $266$ \texttt{source\_url} entries resolve
-to perfume-specific Fragrantica pages---rather than back-filled from the local catalog, so
-the benchmark is non-circular by construction.
+The central methodological risk is circularity: if query features were copied from the
+products they must retrieve, accord overlap would be a tautology. A three-source separation
+guards against this (Table~\ref{tab:firewall}): item accords come from the local catalog,
+query accords are sourced independently from Fragrantica ($264$ of $266$ \texttt{source\_url}
+entries resolve to perfume-specific pages), and the imitation label is held out. Formally,
+interaction-based recommenders (LightGCN, KGIN, KGAT) require a user--item matrix
+$R\in\{0,1\}^{U\times I}$; here $U=\varnothing$, so $R$ is undefined and such models cannot be
+instantiated. A leakage audit finally strips identity-bearing text before any text-based
+method sees it: the reference name never appears, and distinctive name tokens found in the
+free text of $32$ of $340$ products are removed.
 
-\begin{table}[htbp]
-\caption{Three-source firewall for non-circular evaluation}
+\begin{table}[t]
+\caption{Non-circular three-source firewall and dataset statistics}
 \begin{center}
 \begin{tabular}{lll}
 \toprule
 \textbf{Component} & \textbf{Source} & \textbf{Independent of} \\
 \midrule
-Item features  & local catalog accords        & the label \\
-Query features & Fragrantica accords (external) & local catalog \& label \\
+Item features  & local catalog accords              & the label \\
+Query features & Fragrantica accords (external)     & local catalog \& label \\
 Label          & held-out \textit{inspired\_by} edge & accord similarity \\
+\midrule
+\multicolumn{3}{l}{\footnotesize $340$ products ($243$ labeled $+\,97$ non-target), $209$ references,} \\
+\multicolumn{3}{l}{\footnotesize $56$ shared accords; $264/266$ query source URLs verified on Fragrantica.} \\
 \bottomrule
 \end{tabular}
 \label{tab:firewall}
 \end{center}
 \end{table}
-
-A leakage audit further removes identity-bearing text before any text-based method sees it:
-the \texttt{interpreted\_as} field equals the reference perfume name and is never exposed,
-and a distinctive token of a product's own reference name appears in the free-text
-\texttt{meaning} of $32$ of $340$ products; these tokens are stripped prior to embedding.
-
-\subsection{Scope and validity}
-Collaborative and knowledge-graph recommenders---LightGCN, KGIN, and KGAT
-\cite{r18,r19,r20}---take a user--item interaction matrix $R\in\{0,1\}^{U\times I}$ and
-learn embeddings from it. The
-catalog studied here has no users ($U=\varnothing$), so $R$ is undefined and these models
-cannot be instantiated; the exclusion is a property of the data and is stated explicitly
-rather than papered over with vacuous numbers. A second caveat concerns the proxy itself:
-the imitation relation measures \emph{perceptual} match, not user satisfaction. Because an
-imitation is built to smell like its target, query--target accord overlap is high (about
-$86\%$ of a target's accords appear in the query). This overlap is a genuine signal rather
-than an artifact, and it bounds how much any method can improve over the marginal baseline.
 
 \section{Proposed Method}\label{sec:method}
 The proposed matcher represents each fragrance not only by which accords it contains
