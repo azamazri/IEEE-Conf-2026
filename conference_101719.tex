@@ -53,61 +53,65 @@ fragrance, non-circular evaluation
 \end{IEEEkeywords}
 
 \section{Introduction}
-Choosing a perfume is hard. A shopper who likes an expensive branded scent often wants an
-affordable local product that smells the same, and a content-based recommender can help.
-Each perfume is described by a small set of olfactory \emph{accords}---for example
-\textit{amber}, \textit{woody}, or \textit{warm spicy}---and two perfumes that share
-accords tend to smell alike. Existing perfume recommenders rank products almost only by
-order-one accord similarity: cosine over term frequency--inverse document frequency
-(TF-IDF) vectors, or Jaccard over accord sets \cite{r23,r24,r28}. Such marginal
-representations score each accord independently and ignore the structure in which accords
-\emph{co-occur}.
+Aromatique is an Indonesian perfume brand that sells locally blended scents, many of them
+crafted to smell like a well-known global perfume, across a growing network of branches.
+During peak hours the recommendation load falls on the sales staff, who must match a
+customer's reference scent to the right in-house product from memory; the brand needs an
+automated recommender to relieve this bottleneck. Crucially, the catalog records only
+content---each product's olfactory \emph{accords} (e.g., \textit{amber}, \textit{woody},
+\textit{warm spicy}) and its family---and no clicks or ratings. The setting is therefore
+\emph{interaction-free}: recommendations must be made from content alone.
 
-A second constraint matters in practice. Many real catalogs store only content---accord
-lists and family labels---and record no ratings or clicks. This rules out the
-interaction-driven recommenders that dominate the higher-order and knowledge-graph
-literature, such as collaborative filtering, LightGCN, KGIN, and KGAT \cite{r18,r19,r20},
-because they learn from a user--item signal the data does not contain. Methods that exploit item
-co-occurrence and higher-order structure do report strong gains, but only in
-interaction-based settings such as session or multi-behavior recommendation
-\cite{r1,r2,r3,r4,r5}. Whether order-two accord co-occurrence helps in a purely
-content-based, interaction-free setting---and whether it helps under an evaluation that
-cannot leak the answer---is still open.
+Existing perfume recommenders are almost entirely content-based and \emph{order-one}: they
+rank candidates by single-accord similarity using cosine over term frequency--inverse
+document frequency (TF-IDF) vectors or Jaccard over accord sets. Lutan \cite{r23} surveys the
+field, while Nurmuthia \textit{et al.} \cite{r24} and Fannisa \textit{et al.} \cite{r28} rely
+on cosine, Jaccard, and TF-IDF over notes; none models how accords \emph{co-occur}. This is a
+real limitation: two products can share the same individual accords with the reference yet
+differ in which accords appear \emph{together}, so an order-one score ties the correct
+imitation with a distractor, whereas higher-order structure separates them
+(Fig.~\ref{fig:problem}).
 
-A third assumption is common in adjacent fields: that adding perceptual or learned
-\emph{structure} improves retrieval. Odor science arranges accords on sensory wheels and
-perceptual maps \cite{r10,r12,r13}, and much work assumes such geometry should help. Yet on
-small, imbalanced datasets, simple baselines often match or beat flexible models that
-overfit \cite{r14,r15,r16,r17}. This tension has not been examined for interaction-free
-perfume recommendation.
+Richer models are not directly available here. Interaction-driven recommenders that exploit
+co-occurrence and higher-order connectivity---collaborative filtering, LightGCN, KGIN, and
+KGAT \cite{r18,r19,r20}---report strong gains, but only in session or multi-behavior settings
+\cite{r1,r2,r3,r4,r5}; they learn from a user--item signal this catalog does not contain.
+Neural and learned embeddings, and perceptual-geometry priors from odor science
+\cite{r10,r12,r13}, are likewise attractive in principle, yet on small, imbalanced data
+simple baselines routinely match or beat flexible models that overfit \cite{r14,r15,r16,r17}.
+Whether accord \emph{co-occurrence} helps a content-only, interaction-free recommender---and
+how far the benefit extends with interaction order---has not been tested under an evaluation
+that cannot leak the answer.
 
-This paper addresses these gaps with a deliberately simple, parameter-free method and a
-non-circular protocol. Accords and accord-pairs---the nodes and edges of a co-occurrence
-graph---are weighted by inverse document frequency and compared by cosine. The score splits
-additively into an order-one (marginal) term and an order-two (co-occurrence) term, and the
-shared accord-pairs become auditable explanation paths. The matcher carries no trained
-parameters, because added capacity is shown to overfit. The contribution is therefore a
-\emph{finding and a protocol}, not a new model, at a moderate applied scope.
+\begin{figure}[t]
+\centering
+\framebox[0.92\linewidth]{\parbox[c][3.1cm][c]{0.86\linewidth}{\centering\footnotesize
+\{\,FIGURE 1 (author to draw): a reference perfume, its correct Aromatique imitation, and a
+distractor share the \emph{same} individual accords, so an order-one score cannot separate
+them; a shared accord \emph{pair}/\emph{triple} (higher-order token) is present only for the
+correct imitation and breaks the tie. Conceptual two-item illustration.\,\}}}
+\caption{Order-one accord similarity cannot distinguish the correct imitation from a
+distractor that shares the same individual accords; higher-order co-occurrence tokens can.
+\{placeholder---author to supply final artwork.\}}
+\label{fig:problem}
+\end{figure}
 
-The paper makes four contributions. \emph{Task and protocol.} It casts interaction-free,
-content-based perfume recommendation as a retrieval task and defines a non-circular
-evaluation with a three-source firewall: local item accords, externally sourced query
-accords verified from Fragrantica, and held-out inspired-by labels (the imitation, or
-``dupe,'' relation, used only as ground truth). It also makes explicit why interaction-based
-recommenders (KGAT, LightGCN, KGIN) cannot be compared on this data. \emph{Method.} It
-proposes an order-two co-occurrence TF-IDF matcher whose cosine score decomposes into
-order-one and order-two terms and yields faithful-by-construction explanation paths.
-\emph{Finding.} It gives a first non-circular demonstration that order-two co-occurrence
-ranks first among fifteen methods, ahead of all twelve comparators across four
-paradigms---marginal similarity, neural embeddings, perceptual-taxonomy transport, and
-learned models---while neither proposed variant improves on it. Honest caveats accompany the
-claim: the gain over the TF-IDF baseline is modest ($+0.042$ MRR) yet robust, the
-Sentence-BERT loss is partly due to query--product text asymmetry, and the moderate learned
-methods only match the baseline. \emph{Reproducibility.} It provides a complete,
-deterministic benchmark of fifteen methods with paired significance tests and bootstrap
-confidence intervals. The remainder of the paper reviews related work, formalizes the
-problem, presents the method, describes the setup, and reports, discusses, and bounds the
-results.
+This paper takes a deliberately simple route: it extends accord TF-IDF with
+\emph{higher-order} co-occurrence tokens---accords, accord pairs, and accord triples, the
+subsets of a fragrance's accord set---weighted by inverse document frequency and compared by
+cosine, so the score decomposes additively by interaction order. The matcher carries no
+trained parameters, which on a catalog this small is a design choice rather than a limitation,
+since added capacity only overfits. The contribution is a \emph{finding and a protocol}, not a
+new model, at a moderate applied scope:
+\begin{itemize}
+\item \textbf{Finding.} Accord co-occurrence improves interaction-free perfume retrieval over
+the order-one baseline; the gain strengthens with interaction order and then saturates, so we
+adopt order three as the operating point.
+\item \textbf{Protocol.} A non-circular, leakage-free evaluation with a three-source firewall
+(local item accords, externally sourced query accords, and held-out imitation labels used only
+as ground truth), under which we also explain why interaction-based recommenders such as KGAT
+cannot be compared on this data.
+\end{itemize}
 
 \section{Related Work}\label{sec:related}
 
