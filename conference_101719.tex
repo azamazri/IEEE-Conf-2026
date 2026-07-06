@@ -85,14 +85,33 @@ that cannot leak the answer.
 
 \begin{figure}[t]
 \centering
-\framebox[0.92\linewidth]{\parbox[c][3.1cm][c]{0.86\linewidth}{\centering\footnotesize
-\{\,FIGURE 1 (author to draw): a reference perfume, its correct Aromatique imitation, and a
-distractor share the \emph{same} individual accords, so an order-one score cannot separate
-them; a shared accord \emph{pair}/\emph{triple} (higher-order token) is present only for the
-correct imitation and breaks the tie. Conceptual two-item illustration.\,\}}}
-\caption{Order-one accord similarity cannot distinguish the correct imitation from a
-distractor that shares the same individual accords; higher-order co-occurrence tokens can.
-\{placeholder---author to supply final artwork.\}}
+\begin{tikzpicture}[
+  font=\footnotesize,
+  acc/.style={draw, circle, minimum size=6.5mm, inner sep=0pt, fill=white},
+  sh/.style={draw, circle, minimum size=6.5mm, inner sep=0pt, fill=black!12, very thick},
+  e1/.style={gray},
+  e2/.style={ultra thick, red!75!black}]
+\node at (0,1.95) {\textbf{Reference} $q$};
+\node[sh] (qa) at (0,1.35) {amb};
+\node[sh] (qc) at (-0.85,0) {cin};
+\node[acc] (qw) at (0.85,0) {wdy};
+\draw[e1] (qa)--(qw); \draw[e1] (qc)--(qw);
+\draw[e2] (qa)--(qc);
+\node at (3.7,1.95) {\textbf{Imitation} $p$};
+\node[sh] (pa) at (3.7,1.35) {amb};
+\node[sh] (pc) at (2.85,0) {cin};
+\node[acc] (pl) at (4.55,0) {lea};
+\draw[e1] (pa)--(pl); \draw[e1] (pc)--(pl);
+\draw[e2] (pa)--(pc);
+\node[red!75!black] at (1.85,1.7) {\footnotesize shared \emph{pair}};
+\draw[->,red!75!black] (1.55,1.55) to[bend right=12] (qa);
+\draw[->,red!75!black] (2.15,1.55) to[bend left=12] (pa);
+\end{tikzpicture}
+\caption{Why higher order helps. Shaded nodes are accords shared by a reference $q$ and a
+candidate product $p$ (order one). The bold edge is a rare accord \emph{pair}
+(\textit{amber--cinnamon}) that co-occurs in both (order two). A distractor can share the same
+individual accords yet lack this signature co-occurrence, so an order-one score ties them
+while the shared higher-order token lifts the true imitation to the top.}
 \label{fig:problem}
 \end{figure}
 
@@ -180,136 +199,76 @@ Label          & held-out \textit{inspired\_by} edge & accord similarity \\
 \end{center}
 \end{table}
 
-\section{Proposed Method}\label{sec:method}
-The proposed matcher represents each fragrance not only by which accords it contains
-but by which accords \emph{co-occur} in it, weights both by rarity, and compares two
-fragrances by a single cosine that splits cleanly into a marginal term and a
-co-occurrence term. It has no trained parameters. Fig.~\ref{fig:concept} illustrates the
-core idea, and Fig.~\ref{fig:arch} summarizes the pipeline.
+\section{Method}\label{sec:method}
+The matcher represents a fragrance by its accords \emph{and} by which accords co-occur in it,
+weights every token by rarity, and compares two fragrances with a single cosine that splits
+additively by interaction order. It has no trained parameters. Fig.~\ref{fig:pipeline} shows
+the pipeline.
+
+\subsection{Higher-order token representation}
+Using the order-$k$ tokens of \eqref{eq:order}, the order-$N$ representation of a fragrance
+$f$ pools all tokens up to order $N$,
+\begin{equation}
+T_{\le N}(f)=\bigcup_{k=1}^{N} T_k(f). \label{eq:tokens}
+\end{equation}
+Order one recovers the single accords of a plain TF-IDF baseline; orders two and three add the
+co-occurring pairs and triples this work contributes.
+
+\subsection{Weighting, normalization, and scoring}
+Each token is weighted by inverse document frequency over the $M=340$ products, with document
+frequency $\mathrm{df}(t)=|\{f:t\in T_{\le N}(f)\}|$:
+\begin{equation}
+\mathrm{idf}(t)=\log\frac{1+M}{1+\mathrm{df}(t)}+1. \label{eq:idf}
+\end{equation}
+Rare co-occurrences receive a high weight while ubiquitous single accords receive a low one, so
+the hub penalty is automatic and parameter-free. A fragrance becomes a sparse vector $v_f$ with
+$v_f[t]=\mathrm{idf}(t)$ for $t\in T_{\le N}(f)$ and $0$ otherwise, then $L_2$-normalized,
+\begin{equation}
+\hat v_f = v_f/\lVert v_f\rVert_2. \label{eq:vector}
+\end{equation}
+The score of a product $p$ for a reference $q$ is the cosine of the normalized vectors, which
+separates exactly into per-order contributions,
+\begin{equation}
+s(q,p)=\langle \hat v_q,\hat v_p\rangle=\sum_{k=1}^{N} S_k(q,p), \label{eq:score}
+\end{equation}
+where the order-$k$ term aggregates the shared order-$k$ tokens,
+\begin{equation}
+S_k(q,p)=\frac{1}{\lVert v_q\rVert\,\lVert v_p\rVert}\!\!\!\sum_{t\in T_k(q)\cap T_k(p)}\!\!\!\mathrm{idf}(t)^2. \label{eq:terms}
+\end{equation}
+Ranking the $340$ products by $s(q,p)$ and taking the highest few gives the recommendations.
+For the order-three method, the order-three term supplies on average $54\%$ of the top-ranked
+score, order two $37\%$, and order one only $9\%$: higher-order structure carries the majority
+of the signal.
 
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}[
   font=\footnotesize,
-  acc/.style={draw, circle, minimum size=6.5mm, inner sep=0pt, fill=white},
-  sh/.style={draw, circle, minimum size=6.5mm, inner sep=0pt, fill=black!12, very thick},
-  e1/.style={gray},
-  e2/.style={ultra thick, red!75!black}]
-% Query triangle (left)
-\node at (0,1.95) {\textbf{Query} $q$};
-\node[sh] (qa) at (0,1.35) {amb};
-\node[sh] (qc) at (-0.85,0) {cin};
-\node[acc] (qw) at (0.85,0) {wdy};
-\draw[e1] (qa)--(qw); \draw[e1] (qc)--(qw);
-\draw[e2] (qa)--(qc);
-% Product triangle (right)
-\node at (3.7,1.95) {\textbf{Product} $p$};
-\node[sh] (pa) at (3.7,1.35) {amb};
-\node[sh] (pc) at (2.85,0) {cin};
-\node[acc] (pl) at (4.55,0) {lea};
-\draw[e1] (pa)--(pl); \draw[e1] (pc)--(pl);
-\draw[e2] (pa)--(pc);
-\node[red!75!black] at (1.85,1.7) {\footnotesize shared \emph{pair}};
-\draw[->,red!75!black] (1.55,1.55) to[bend right=12] (qa);
-\draw[->,red!75!black] (2.15,1.55) to[bend left=12] (pa);
-\end{tikzpicture}
-\caption{Order-1 versus order-2 matching. Shaded nodes are accords shared by reference $q$
-and candidate product $p$ (order-1). The bold red edge is a rare accord \emph{pair}
-(\textit{amber--cinnamon}) that co-occurs in both (order-2). A distractor may share the same
-individual accords yet lack this signature pairing; the shared rare pair, not the shared
-accords, lifts the true match to the top.}
-\label{fig:concept}
-\end{figure}
-
-\subsection{Co-occurrence representation}
-For a fragrance $f$ with accord set $A(f)$, define its accord co-occurrence graph
-$G_f=(A(f),E_f)$ whose edges are the unordered accord pairs
-\begin{equation}
-E_f=\{(a,b)\;:\;a,b\in A(f),\ a<b\}. \label{eq:edges}
-\end{equation}
-The token set of $f$ is the union of its accords (unigrams) and its accord pairs
-(bigrams),
-\begin{equation}
-T(f)=A(f)\,\cup\,E_f. \label{eq:tokens}
-\end{equation}
-
-\subsection{Rarity weighting and normalization}
-Tokens are weighted by inverse document frequency over the catalog of $N$ products.
-With document frequency $\mathrm{df}(t)=\lvert\{f:t\in T(f)\}\rvert$,
-\begin{equation}
-\mathrm{idf}(t)=\log\!\frac{1+N}{1+\mathrm{df}(t)}+1. \label{eq:idf}
-\end{equation}
-Rare signature pairs receive a high weight, whereas ubiquitous hub accords (e.g.,
-\textit{woody}, \textit{citrus}) receive a low weight; the hub penalty is therefore
-automatic and parameter-free. Each fragrance becomes a sparse vector
-\begin{equation}
-v_f[t]=
-\begin{cases}
-\mathrm{idf}(t) & \text{if } t\in T(f),\\
-0 & \text{otherwise,}
-\end{cases}
-\label{eq:vector}
-\end{equation}
-which is then $L_2$-normalized, $v_f\leftarrow v_f/\lVert v_f\rVert_2$.
-
-\subsection{Similarity and additive decomposition}
-The score between a query $q$ and a product $p$ is the cosine of their token vectors,
-which separates exactly into an order-one (marginal) and an order-two (co-occurrence)
-contribution:
-\begin{equation}
-s(q,p)=\frac{S_1(q,p)+S_2(q,p)}{\lVert v_q\rVert\,\lVert v_p\rVert}, \label{eq:score}
-\end{equation}
-\begin{align}
-S_1(q,p)&=\sum_{a\in A(q)\cap A(p)}\mathrm{idf}(a)^2,\label{eq:s1}\\
-S_2(q,p)&=\sum_{e\in E_q\cap E_p}\mathrm{idf}(e)^2.\label{eq:terms}
-\end{align}
-Here $S_1$ rewards shared accords and $S_2$ rewards shared accord \emph{pairs}; because
-both blocks share one normalizer, the two terms add up to the full score. Empirically,
-the order-two term $S_2$ accounts for $81.3\%$ of the top-ranked score, confirming that
-co-occurrence, not marginal overlap, drives retrieval. Ranking the $340$ products by
-$s(q,p)$ in descending order and taking the three highest yields the Top-3 output.
-
-\subsection{Explanation paths}
-Because the score is a sum over shared tokens, every recommendation is explained by the
-same quantities that produced it. For each Top-3 product, the shared accord pairs
-$E_q\cap E_p$ are emitted as co-occurrence \emph{paths}, each carrying its weight
-$\mathrm{idf}(e)^2$ and the Edwards fragrance-wheel super-family \cite{r10} of its two
-accords (or \textit{cross-family} when they differ); shared single accords are emitted
-as node paths. The resulting \texttt{kg\_paths} are auditable and faithful by
-construction---they are not a post-hoc rationalization but the score decomposition
-itself---and serve a downstream explainability layer.
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[
-  font=\footnotesize,
-  box/.style={draw, rounded corners, align=center, text width=0.80\linewidth,
-              inner sep=4pt, minimum height=6.5mm},
-  hbox/.style={draw, dashed, rounded corners, align=center, text width=0.80\linewidth,
-               inner sep=4pt},
+  box/.style={draw, rounded corners, align=center, text width=0.82\linewidth,
+              inner sep=4pt, minimum height=6mm},
   arr/.style={-{Latex[length=2mm]}, thick}]
-\node[box] (q) {Query: accords $A(q)$ + global family};
-\node[box, below=3.5mm of q] (g) {Co-occurrence tokens $T(q)=A(q)\cup E_q$, IDF-weighted~$\star$};
-\node[box, below=3.5mm of g] (m) {Parameter-free matcher $s(q,p)=\langle v_q,v_p\rangle$ (order-1 $+$ order-2)};
-\node[box, below=3.5mm of m] (r) {Rank 340 products $\rightarrow$ Top-3};
-\node[box, below=3.5mm of r] (k) {\texttt{kg\_paths}: shared pairs grouped by wheel super-family~$\star$};
-\draw[arr] (q)--(g); \draw[arr] (g)--(m); \draw[arr] (m)--(r); \draw[arr] (r)--(k);
-\node[hbox, below=4mm of k] (h) {Non-circular harness~$\star$: leave-one-out, leakage firewall, 15-method ladder, Wilcoxon + bootstrap};
-\draw[arr, dashed] (k)--(h);
+\node[box] (a) {Accord sets $A(q)$, $A(p)$};
+\node[box, below=3mm of a] (t) {Order-1 accords $\;\cup\;$ order-2 pairs $\;\cup\;$ order-3 triples\\[1pt]
+{\scriptsize order-1 $=$ plain TF-IDF \quad$|$\quad order-2/3 $=$ our addition}};
+\node[box, below=3mm of t] (w) {IDF weighting~\eqref{eq:idf} $+$ $L_2$ normalization~\eqref{eq:vector}};
+\node[box, below=3mm of w] (c) {Cosine $s(q,p)=\sum_k S_k(q,p)$~\eqref{eq:score}};
+\node[box, below=3mm of c] (d) {Per-order decomposition:\; $S_1\,9\%\;+\;S_2\,37\%\;+\;S_3\,54\%$};
+\draw[arr] (a)--(t); \draw[arr] (t)--(w); \draw[arr] (w)--(c); \draw[arr] (c)--(d);
 \end{tikzpicture}
-\caption{Framework overview. A query is turned into an IDF-weighted co-occurrence token
-vector, matched against the $340$ products by a parameter-free cosine, and the Top-3 are
-returned with auditable \texttt{kg\_paths}. The whole pipeline is evaluated by a
-non-circular harness. $\star$ marks the three novelty points.}
-\label{fig:arch}
+\caption{Scoring pipeline. Accords are expanded into higher-order co-occurrence tokens
+(order one reproduces plain TF-IDF; orders two and three are the contribution),
+IDF-weighted and $L_2$-normalized, and compared by a cosine whose value decomposes by
+interaction order. Percentages are the average share of the top-ranked score.}
+\label{fig:pipeline}
 \end{figure}
 
-\subsection{Design rationale}
-The matcher is deliberately parameter-free. On a catalog this sparse---$209$ queries,
-one relevant product each---added capacity overfits, as the experiments confirm: a
-learning-to-rank fusion does not significantly beat the bare cosine, and high-dimensional
-learned variants collapse, as reported in the results. Simplicity is thus a design
-decision grounded in the data regime, not an omission.
+\subsection{Parameter-free design and explanations}
+The matcher has no trained weights, so it cannot overfit---a principled choice on a catalog
+with a single relevant product per query, where added capacity is later shown to degrade
+accuracy. As a byproduct, the shared higher-order tokens of a recommendation, grouped by
+Edwards-wheel super-family \cite{r10}, form auditable co-occurrence paths (\texttt{kg\_paths})
+for a downstream domain-expert explanation layer; we report them as an artifact, not a
+faithfulness claim.
 
 \section{Experimental Setup}\label{sec:setup}
 
