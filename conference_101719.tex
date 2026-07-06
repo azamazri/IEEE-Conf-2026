@@ -32,21 +32,21 @@ azamazriahmad@mail.ugm.ac.id}
 Content-based perfume recommenders rank products by order-one accord similarity, such as
 cosine or Jaccard over note sets, and treat accords as independent. Whether modeling how
 accords \emph{co-occur} improves recommendation has not been tested under a leakage-free
-protocol. Most product catalogs also record no user interactions, which rules out the
+protocol, and most product catalogs record no user interactions, which rules out the
 collaborative and knowledge-graph recommenders that need an interaction signal. This paper
-studies interaction-free, content-based perfume recommendation, cast as a retrieval task:
-given a reference perfume, the catalog is ranked to surface the product that best matches
-it, and a held-out inspired-by edge supplies ground-truth relevance. The proposed matcher
-is parameter-free. It augments accord TF-IDF with accord-pair (order-two) tokens, its
-cosine score splits additively into an order-one and an order-two term, and it emits
-auditable co-occurrence paths for explanation. The evaluation covers 340 products and 209
-reference perfumes under leave-one-out ranking, behind a three-source firewall whose query
-accords are independently verified from Fragrantica. Across fifteen methods spanning
-marginal similarity, neural embeddings, perceptual-taxonomy transport, and learned models,
-the order-two matcher attains the best mean reciprocal rank (MRR 0.496) and exceeds the
-TF-IDF baseline (0.454) by a modest but robust margin ($\Delta$MRR $+0.042$, 95\% CI
-$[+0.019,+0.067]$, Wilcoxon $p=8.7\times10^{-8}$); order-two terms supply 81.3\% of the
-top-ranked score.
+studies interaction-free, content-based perfume recommendation as a retrieval task: given a
+reference perfume, a catalog is ranked to surface the product that imitates it, and a
+held-out inspired-by edge supplies ground-truth relevance. The proposed matcher is
+parameter-free; it extends accord TF-IDF with higher-order co-occurrence tokens---accord
+pairs and triples---and its cosine score decomposes additively by interaction order, while
+emitting auditable co-occurrence paths for explanation. On 340 products and 209 reference
+perfumes under leave-one-out ranking, behind a three-source firewall whose query accords are
+independently verified from Fragrantica, accuracy improves as co-occurrence order increases:
+mean reciprocal rank rises from 0.454 for the order-one baseline to 0.508 at order three,
+which outranks twelve comparators spanning marginal similarity, neural embeddings,
+perceptual-taxonomy transport, and learned models. The gain is modest but statistically
+robust, and higher-order structure carries the majority of the ranking signal. The
+contribution is a finding and a leakage-free evaluation protocol rather than a new model.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -79,7 +79,7 @@ co-occurrence and higher-order connectivity---collaborative filtering, LightGCN,
 KGAT \cite{r18,r19,r20}---report strong gains, but only in session or multi-behavior settings
 \cite{r1,r2,r3,r4,r5}; they learn from a user--item signal this catalog does not contain.
 Neural and learned embeddings, and perceptual-geometry priors from odor science
-\cite{r10,r12,r13}, are likewise attractive in principle, yet on small, imbalanced data
+\cite{r10,r11,r12,r13}, are likewise attractive in principle, yet on small, imbalanced data
 simple baselines routinely match or beat flexible models that overfit \cite{r14,r15,r16,r17}.
 Whether accord \emph{co-occurrence} helps a content-only, interaction-free recommender---and
 how far the benefit extends with interaction order---has not been tested under an evaluation
@@ -269,8 +269,8 @@ The matcher has no trained weights, so it cannot overfit---a principled choice o
 with a single relevant product per query, where added capacity is later shown to degrade
 accuracy. As a byproduct, the shared higher-order tokens of a recommendation, grouped by
 Edwards-wheel super-family \cite{r10}, form auditable co-occurrence paths (\texttt{kg\_paths})
-for a downstream domain-expert explanation layer; we report them as an artifact, not a
-faithfulness claim.
+for a downstream explanation layer, in the spirit of path-based explainable recommendation
+\cite{r21}; we report them as an artifact, not a faithfulness claim.
 
 \section{Experiments}\label{sec:experiments}
 We ask three questions:
@@ -289,7 +289,8 @@ lists are parsed by splitting on commas and semicolons, lower-casing, and trimmi
 order-$N$ matcher is compared against twelve methods spanning four paradigms: \emph{marginal}
 similarity (Jaccard, TF-IDF cosine, BM25); \emph{neural} embeddings (multilingual
 Sentence-BERT \cite{r22}, Word2Vec over accords, node2vec over the co-occurrence graph);
-\emph{perceptual} transport (a tree-Wasserstein distance over the Edwards wheel \cite{r10});
+\emph{perceptual} transport (a tree-Wasserstein distance over the Edwards wheel \cite{r10},
+following graph-based optimal transport \cite{r7,r9});
 and \emph{learned} models (a PPMI--SVD embedding, a signature-subgraph ranker, a per-bigram
 salience logistic model, a low-rank bilinear metric, and a gradient-boosting fusion). B2
 (TF-IDF cosine) is the primary baseline. With one relevant product per query, quality is
@@ -435,19 +436,19 @@ most of the signal (order three alone supplies $54\%$ of the top-ranked score). 
 learning-to-rank layer over this representation yields no significant improvement ($p=0.18$),
 so the parameter-free form is retained.
 
-The result is reported with its limits intact. (i)~The effect is modest in absolute terms.
-(ii)~All data come from a single proprietary catalog in one market, so external validity is
-untested. (iii)~Accords are binary, without per-accord intensity, so products with identical
-accord sets are indistinguishable. (iv)~The imitation relation is a perceptual proxy, not user
-satisfaction. (v)~Query--target accord overlap is high (about $86\%$), a ceiling intrinsic to
-the imitation task that bounds the achievable gain. (vi)~The advantage across paradigms is, to
-our knowledge, the first non-circular demonstration of its kind, but is claimed only for this
-setting. (vii)~The high-order plateau reflects the scarcity of shared high-order tokens in this
-catalog and may shift with richer accord vocabularies. Future work follows from these limits:
-intensity-weighted co-occurrence, a symmetric-text evaluation to isolate the semantic
-contribution of sentence encoders, a counterfactual edge-ablation study to quantify the
-faithfulness of the exported \texttt{kg\_paths}, and replication across further catalogs and
-domains.
+The result is reported with its limits intact. The effect is modest in absolute terms, and all
+data come from a single proprietary catalog in one market, so external validity remains
+untested. Accords are binary, without per-accord intensity, so products with identical accord
+sets cannot be distinguished, and because the imitation relation is a perceptual proxy rather
+than a measure of user satisfaction, its already high query--target accord overlap---about
+$86\%$---imposes a ceiling intrinsic to the task that bounds the achievable gain. The advantage
+across paradigms is, to our knowledge, the first non-circular demonstration of its kind, yet it
+is claimed only for this setting, and the high-order plateau itself reflects the scarcity of
+shared high-order tokens in this catalog and may shift with richer accord vocabularies. These
+limits point to natural next steps: intensity-weighted co-occurrence, a symmetric-text
+evaluation to isolate the semantic contribution of sentence encoders, a counterfactual
+edge-ablation study to quantify the faithfulness of the exported \texttt{kg\_paths}, and
+replication across further catalogs and domains.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
