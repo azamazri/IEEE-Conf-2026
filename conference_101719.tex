@@ -107,31 +107,38 @@ that cannot leak the answer.
 \centering
 \begin{tikzpicture}[
   font=\footnotesize,
-  acc/.style={draw, circle, minimum size=6.5mm, inner sep=0pt, fill=white},
-  sh/.style={draw, circle, minimum size=6.5mm, inner sep=0pt, fill=black!12, very thick},
-  e1/.style={gray},
-  e2/.style={ultra thick, red!75!black}]
-\node at (0,1.95) {\textbf{Reference} $q$};
-\node[sh] (qa) at (0,1.35) {amb};
-\node[sh] (qc) at (-0.85,0) {cin};
-\node[acc] (qw) at (0.85,0) {wdy};
-\draw[e1] (qa)--(qw); \draw[e1] (qc)--(qw);
-\draw[e2] (qa)--(qc);
-\node at (3.7,1.95) {\textbf{Imitation} $p$};
-\node[sh] (pa) at (3.7,1.35) {amb};
-\node[sh] (pc) at (2.85,0) {cin};
-\node[acc] (pl) at (4.55,0) {lea};
-\draw[e1] (pa)--(pl); \draw[e1] (pc)--(pl);
-\draw[e2] (pa)--(pc);
-\node[red!75!black] at (1.85,1.7) {\footnotesize shared \emph{pair}};
-\draw[->,red!75!black] (1.55,1.55) to[bend right=12] (qa);
-\draw[->,red!75!black] (2.15,1.55) to[bend left=12] (pa);
+  acc/.style={draw, circle, minimum size=6mm, inner sep=0pt, fill=white},
+  sh/.style={draw, circle, minimum size=6mm, inner sep=0pt, fill=black!12, very thick},
+  rare/.style={ultra thick, red!75!black},
+  common/.style={gray, dashed}]
+% Reference q (left)
+\node at (0,1.75) {\textbf{Reference} $q$};
+\node[acc] (qa) at (0,1.15) {amb};
+\node[acc] (qc) at (-0.8,0.25) {cin};
+\node[acc] (qw) at (0.8,0.25) {wdy};
+\draw[gray] (qa)--(qw); \draw[gray] (qc)--(qw);
+\draw[rare] (qa)--(qc);
+\node[red!75!black] at (-1.15,0.7) {\scriptsize rare pair};
+% Imitation p (upper right)
+\node at (3.7,2.15) {\textbf{Imitation} $p$};
+\node[sh] (pa) at (3.7,1.6) {amb};
+\node[sh] (pc) at (3.0,0.85) {cin};
+\node[acc] (pl) at (4.5,0.85) {lea};
+\draw[gray] (pa)--(pl); \draw[gray] (pc)--(pl);
+\draw[rare] (pa)--(pc);
+% Distractor d (lower right)
+\node at (3.7,-0.1) {\textbf{Distractor} $d$};
+\node[sh] (da) at (3.7,-0.65) {amb};
+\node[sh] (dw) at (3.0,-1.4) {wdy};
+\node[acc] (dm) at (4.5,-1.4) {mus};
+\draw[gray] (da)--(dm); \draw[gray] (dw)--(dm);
+\draw[common] (da)--(dw);
 \end{tikzpicture}
-\caption{Why higher order helps. Shaded nodes are accords shared by a reference $q$ and a
-candidate product $p$ (order one). The bold edge is a rare accord \emph{pair}
-(\textit{amber--cinnamon}) that co-occurs in both (order two). A distractor can share the same
-individual accords yet lack this signature co-occurrence, so an order-one score ties them
-while the shared higher-order token lifts the true imitation to the top.}
+\caption{Why higher order helps. Both the correct imitation $p$ and a distractor $d$ share two
+individual accords with the reference $q$ (shaded), so an order-one score ties them. Only $p$
+reproduces $q$'s rare co-occurring pair \textit{amber--cinnamon} (bold); $d$ shares only the
+common \textit{amber--woody} pairing (dashed). Higher-order tokens therefore break the tie in
+favor of the true imitation.}
 \label{fig:problem}
 \end{figure}
 
