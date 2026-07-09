@@ -32,7 +32,7 @@ azamazriahmad@mail.ugm.ac.id}
 \textit{Faculty of Engineering, Universitas Gadjah Mada}\\
 Yogyakarta 55281, Indonesia \\
 syukron.abu@ugm.ac.id}
-\linebreak
+\\
 \IEEEauthorblockN{Bimo Sunarfri Hantono}
 \IEEEauthorblockA{\textit{Department of Electrical and Information Engineering} \\
 \textit{Universitas Gadjah Mada}\\
@@ -264,7 +264,7 @@ s(q,p)=\langle \hat v_q,\hat v_p\rangle=\sum_{k=1}^{N} S_k(q,p), \label{eq:score
 \end{equation}
 where the order-$k$ term aggregates the shared order-$k$ tokens,
 \begin{equation}
-S_k(q,p)=\frac{1}{\lVert v_q\rVert\,\lVert v_p\rVert}\!\!\!\sum_{t\in T_k(q)\cap T_k(p)}\!\!\!\mathrm{idf}(t)^2. \label{eq:terms}
+S_k(q,p)=\frac{1}{\lVert v_q\rVert\,\lVert v_p\rVert}\sum_{t\in T_k(q)\cap T_k(p)}\mathrm{idf}(t)^2. \label{eq:terms}
 \end{equation}
 Ranking the $340$ products by $s(q,p)$ and taking the highest few gives the recommendations.
 For the order-three method, the order-three term supplies on average $54\%$ of the top-ranked
@@ -302,15 +302,13 @@ for a downstream explanation layer, in the spirit of path-based explainable reco
 \cite{r21}; we report them as an artifact, not a faithfulness claim.
 
 \section{Experiments}\label{sec:experiments}
-We ask three questions:
-\begin{itemize}
-\item[\textbf{RQ1.}] Does accord co-occurrence (order $\ge 2$) improve retrieval over the
-order-one baseline?
-\item[\textbf{RQ2.}] How far does the improvement continue with interaction order---is there a
-saturation point?
-\item[\textbf{RQ3.}] How does the order-three matcher compare with established paradigms:
-marginal similarity, neural embeddings, perceptual transport, and learned models?
-\end{itemize}
+We ask three research questions:\\
+\textbf{RQ1:} Does accord co-occurrence (order $\ge 2$) improve retrieval over the order-one
+baseline?\\
+\textbf{RQ2:} How far does the improvement continue with interaction order---is there a
+saturation point?\\
+\textbf{RQ3:} How does the order-three matcher compare with established paradigms: marginal
+similarity, neural embeddings, perceptual transport, and learned models?
 
 \subsection{Setup}
 The dataset and its non-circular firewall are summarized in Table~\ref{tab:firewall}; accord
@@ -351,26 +349,26 @@ dataset-dependent: a catalog with richer accord lists could extend the useful or
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}
-\begin{axis}[width=0.95\linewidth,height=5.2cm,font=\footnotesize,
+\begin{axis}[width=0.95\linewidth,height=5.4cm,font=\footnotesize,
   xlabel={maximum interaction order $N$}, ylabel={MRR},
-  xmin=0.6,xmax=6.4, ymin=0.44, ymax=0.525,
+  xmin=0.6,xmax=6.4, ymin=0.44, ymax=0.53,
   xtick={1,2,3,4,5,6}, ytick={0.45,0.47,0.49,0.51},
   ymajorgrids, grid style={gray!18}, tick align=outside, clip=false]
 % plateau band: orders 3-6 are not significantly different
-\fill[blue!7] (axis cs:2.85,0.44) rectangle (axis cs:6.4,0.525);
-\node[font=\scriptsize, text=blue!45!black, align=center, anchor=north]
-  at (axis cs:4.7,0.522) {not significantly\\different};
+\fill[blue!7] (axis cs:2.85,0.44) rectangle (axis cs:6.4,0.53);
+\node[font=\scriptsize, text=blue!45!black, align=left, anchor=north west]
+  at (axis cs:2.95,0.529) {not significantly\\different};
 % curve
 \addplot[thick, mark=*, color=blue!70!black] coordinates
  {(1,0.454)(2,0.496)(3,0.508)(4,0.511)(5,0.511)(6,0.511)};
-% value labels
-\node[anchor=north west, font=\scriptsize] at (axis cs:1,0.452) {0.454};
-\node[anchor=north west, font=\scriptsize] at (axis cs:2,0.494) {0.496};
-\node[anchor=north west, font=\scriptsize] at (axis cs:3,0.506) {0.508};
-\node[anchor=south, font=\scriptsize] at (axis cs:5,0.513) {0.511};
+% value labels (below the markers)
+\node[anchor=north, font=\scriptsize] at (axis cs:1,0.451) {0.454};
+\node[anchor=north, font=\scriptsize] at (axis cs:2,0.493) {0.496};
+\node[anchor=north, font=\scriptsize] at (axis cs:3,0.505) {0.508};
+\node[anchor=north, font=\scriptsize] at (axis cs:5.3,0.509) {0.511};
 % operating-point annotation above the curve, leader to N=3
-\node[font=\scriptsize, anchor=south] (op) at (axis cs:1.9,0.514) {operating point};
-\draw[->,thin] (op.east) to[bend right=12] (axis cs:3,0.5095);
+\node[font=\scriptsize, anchor=south] (op) at (axis cs:1.55,0.516) {operating point};
+\draw[->,thin] (op.east) to[bend right=12] (axis cs:3,0.510);
 \end{axis}
 \end{tikzpicture}
 \caption{Retrieval accuracy versus maximum interaction order. Accuracy rises steeply from
