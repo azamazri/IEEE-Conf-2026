@@ -339,8 +339,8 @@ text-based method is run after the leakage audit of Section~\ref{sec:problem}.
 \subsection{RQ1 and RQ2: co-occurrence helps, then saturates}
 Adding co-occurrence tokens raises accuracy sharply and then plateaus
 (Fig.~\ref{fig:ablation}). MRR climbs from $0.454$ at order one to $0.496$ at order two and
-$0.508$ at order three, and each step is statistically significant (order two vs.\ three:
-$\Delta\mathrm{MRR}=0.012$, $p=2.8\times10^{-3}$). Beyond order three the curve is flat:
+$0.508$ at order three, and both steps are statistically significant (order one to two,
+$p=8.7\times10^{-8}$; order two to three, $\Delta\mathrm{MRR}=0.012$, $p=2.8\times10^{-3}$). Beyond order three the curve is flat:
 order four is not significantly better than order three ($\Delta\mathrm{MRR}=0.003$, $95\%$
 CI $[-0.010,+0.005]$), so we adopt order three as the operating point. The plateau has a
 simple cause: high-order co-occurrences become vanishingly rare, so little is left to
