@@ -108,30 +108,32 @@ that cannot leak the answer.
 \centering
 \begin{tikzpicture}[
   font=\footnotesize,
-  acc/.style={draw, circle, minimum size=6mm, inner sep=0pt, fill=white},
-  sh/.style={draw, circle, minimum size=6mm, inner sep=0pt, fill=black!12, very thick},
+  acc/.style={draw, rounded corners, minimum width=1.35cm, minimum height=4.5mm,
+              inner sep=1pt, font=\scriptsize, fill=white},
+  sh/.style={draw, rounded corners, minimum width=1.35cm, minimum height=4.5mm,
+             inner sep=1pt, font=\scriptsize, fill=black!12, very thick},
   rare/.style={ultra thick, red!75!black},
   common/.style={gray, dashed}]
 % Reference q (left)
-\node at (0,1.75) {\textbf{Reference} $q$};
-\node[acc] (qa) at (0,1.15) {amb};
-\node[acc] (qc) at (-0.8,0.25) {cin};
-\node[acc] (qw) at (0.8,0.25) {wdy};
+\node at (0,1.85) {\textbf{Reference} $q$};
+\node[acc] (qa) at (0,1.2) {amber};
+\node[acc] (qc) at (-1.05,0.3) {cinnamon};
+\node[acc] (qw) at (1.05,0.3) {woody};
 \draw[gray] (qa)--(qw); \draw[gray] (qc)--(qw);
 \draw[rare] (qa)--(qc);
-\node[red!75!black] at (-1.15,0.7) {\scriptsize rare pair};
+\node[red!75!black] at (-1.15,0.95) {\scriptsize rare pair};
 % Imitation p (upper right)
-\node at (3.7,2.15) {\textbf{Imitation} $p$};
-\node[sh] (pa) at (3.7,1.6) {amb};
-\node[sh] (pc) at (3.0,0.85) {cin};
-\node[acc] (pl) at (4.5,0.85) {lea};
+\node at (4.6,2.2) {\textbf{Imitation} $p$};
+\node[sh] (pa) at (4.6,1.6) {amber};
+\node[sh] (pc) at (3.85,0.75) {cinnamon};
+\node[acc] (pl) at (5.35,0.75) {leather};
 \draw[gray] (pa)--(pl); \draw[gray] (pc)--(pl);
 \draw[rare] (pa)--(pc);
 % Distractor d (lower right)
-\node at (3.7,-0.1) {\textbf{Distractor} $d$};
-\node[sh] (da) at (3.7,-0.65) {amb};
-\node[sh] (dw) at (3.0,-1.4) {wdy};
-\node[acc] (dm) at (4.5,-1.4) {mus};
+\node at (4.6,-0.15) {\textbf{Distractor} $d$};
+\node[sh] (da) at (4.6,-0.75) {amber};
+\node[sh] (dw) at (3.85,-1.6) {woody};
+\node[acc] (dm) at (5.35,-1.6) {musky};
 \draw[gray] (da)--(dm); \draw[gray] (dw)--(dm);
 \draw[common] (da)--(dw);
 \end{tikzpicture}
