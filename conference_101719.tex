@@ -345,11 +345,11 @@ Table~\ref{tab:main} places order three against all twelve comparators. It ranks
 every metric and beats each comparator significantly ($p<0.01$ throughout); the headline
 margin over the marginal baseline B2 is $\Delta\mathrm{MRR}=+0.054$ ($p=5.6\times10^{-9}$).
 Two regimes of margin stand apart. Over the simple, near-marginal methods the win is real but
-small---$+0.054$ over TF-IDF (B2), $+0.066$ over PPMI--SVD (A2), $+0.063$ over gradient
+small---$+0.054$ over TF-IDF (B2), $+0.064$ over PPMI--SVD (A2), $+0.051$ over gradient
 boosting (A6), and $+0.080$ over Jaccard (B1)---so these methods approach without surpassing
 the co-occurrence signal. Over the complex models the win is decisive: $+0.236$ over
-Sentence-BERT (B4), $+0.305$ over Word2Vec (B5), $+0.344$ over the bilinear metric (A5), and
-$+0.379$ over per-bigram salience (A4). Tellingly, the two parametric models that explicitly
+Sentence-BERT (B4), $+0.323$ over Word2Vec (B5), $+0.358$ over the bilinear metric (A5), and
+$+0.369$ over per-bigram salience (A4). Tellingly, the two parametric models that explicitly
 try to \emph{learn} co-occurrence weights---per-bigram salience and the bilinear metric---overfit
 the worst and collapse to the bottom of the table under the one-positive-per-query imbalance.
 Exact, unweighted co-occurrence thus beats \emph{learned} co-occurrence here, which is why the
